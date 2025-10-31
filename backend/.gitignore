@@ -13,6 +13,8 @@ build/
 # Logs
 *.log
 npm-debug.log*
+logs/
+.pm2/
 
 # OS files
 .DS_Store
@@ -21,3 +23,14 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# PM2
+.pm2
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+coverage/
+.nyc_output/

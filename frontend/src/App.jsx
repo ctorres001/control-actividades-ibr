@@ -10,6 +10,7 @@ import { AuthProvider } from './context/AuthContext';
 // Pages
 import LoginPage from './pages/LoginPage';
 import AsesorDashboard from './pages/AsesorDashboard'; // ← Agregar import
+import ChangePasswordPage from './pages/ChangePasswordPage';
 
 // Configurar React Query
 const queryClient = new QueryClient({
@@ -34,6 +35,9 @@ function App() {
             <Routes>
               {/* Ruta de login */}
               <Route path="/login" element={<LoginPage />} />
+
+              {/* Ruta de cambio de contraseña */}
+              <Route path="/change-password" element={<ChangePasswordPage />} />
 
               {/* Redirección por defecto */}
               <Route path="/" element={<Navigate to="/login" replace />} />

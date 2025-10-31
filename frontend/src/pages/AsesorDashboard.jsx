@@ -235,13 +235,24 @@ export default function AsesorDashboard() {
             </div>
           </div>
         </div>
-        <button 
-          onClick={handleLogout}
-          className="px-4 py-2 bg-neutral-600 hover:bg-neutral-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-        >
-          <span>🚪</span>
-          <span>Cerrar Sesión</span>
-        </button>
+        <div className="flex gap-3">
+          {/* BOTÓN CAMBIAR CONTRASEÑA COMENTADO TEMPORALMENTE - Se activará desde panel de supervisor
+          <button 
+            onClick={() => navigate('/change-password')}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <span>🔒</span>
+            <span>Cambiar Contraseña</span>
+          </button>
+          */}
+          <button 
+            onClick={handleLogout}
+            className="px-4 py-2 bg-neutral-600 hover:bg-neutral-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <span>🚪</span>
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

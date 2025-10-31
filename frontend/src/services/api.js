@@ -5,11 +5,11 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// Para desarrollo con proxy, usa URL relativa
-// Para producción, mantén la variable de entorno
+// Usar URL directa del backend en desarrollo (sin proxy)
+// Para producción, usa la variable de entorno
 const API_BASE_URL = import.meta.env.PROD 
   ? (import.meta.env.VITE_API_URL || '/api')
-  : '/api';
+  : 'http://localhost:3001/api';
 
 console.log('🚀 Configuración API:', {
   baseURL: API_BASE_URL,

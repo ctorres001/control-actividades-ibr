@@ -6,11 +6,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import { prisma } from './utils/prisma.js';
 
 // Importar rutas
 import authRoutes from './routes/auth.routes.js';
 import activityRoutes from './routes/activity.routes.js';
+import passwordRoutes from './routes/password.routes.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -25,6 +28,25 @@ const PORT = process.env.PORT || 3001;
 
 // Helmet - Seguridad HTTP headers
 app.use(helmet());
+
+// Compression - Comprimir respuestas HTTP (reduce ancho de banda ~70%)
+app.use(compression());
+
+// Rate limiting - Protección contra abuso
+const generalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 100, // 100 requests por minuto por IP
+  message: { error: 'Demasiadas solicitudes, intenta más tarde' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // 5 intentos de login
+  message: { error: 'Demasiados intentos de login, espera 15 minutos' },
+  skipSuccessfulRequests: true, // No contar logins exitosos
+});
 
 // CORS - Permitir requests desde frontend
 // Configurar CORS de forma flexible: aceptar lista separada por comas en CORS_ORIGIN
@@ -135,13 +157,20 @@ app.get('/api/test-db', async (req, res) => {
 // =====================================================
 // RUTAS DE AUTENTICACIÓN
 // =====================================================
+app.use('/api/auth/login', loginLimiter); // Rate limit específico para login
 app.use('/api/auth', authRoutes);
 
 // =====================================================
 // RUTAS DE ACTIVIDADES
 // =====================================================
 
-app.use('/api/activities', activityRoutes);
+app.use('/api/activities', generalLimiter, activityRoutes);
+
+// =====================================================
+// RUTAS DE PASSWORD RESET
+// =====================================================
+
+app.use('/api/password', passwordRoutes);
 
 // =====================================================
 // MANEJO DE ERRORES
