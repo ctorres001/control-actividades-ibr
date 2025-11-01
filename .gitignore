@@ -58,3 +58,7 @@ prisma/dev.db-journal
 *.local
 .temp/
 .tmp/
+
+# Credentials (development only - never commit)
+CREDENCIALES_DESARROLLO.md
+**/CREDENCIALES_DESARROLLO.md

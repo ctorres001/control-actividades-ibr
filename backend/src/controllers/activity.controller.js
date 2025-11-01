@@ -5,6 +5,11 @@
 
 import { prisma } from '../utils/prisma.js';
 
+// Cachés en memoria con TTL corto para aliviar carga bajo alto polling
+const summaryCache = new Map(); // key: `${usuarioId}:${dateStr}` -> { ts, data }
+const logCache = new Map();     // key: `${usuarioId}:${dateStr}` -> { ts, data }
+const CACHE_TTL_MS = parseInt(process.env.SUMMARY_LOG_CACHE_TTL_MS || '2000', 10); // 2s por defecto
+
 // =====================================================
 // GET ACTIVE ACTIVITIES - Obtener actividades activas
 // =====================================================
@@ -113,36 +118,37 @@ export const startActivity = async (req, res) => {
       }
     }
 
-    // Cerrar actividad anterior si existe
-    await prisma.registroActividad.updateMany({
-      where: {
-        usuarioId,
-        horaFin: null
-      },
-      data: {
-        horaFin: new Date(),
-        estado: 'Finalizado'
-      }
+    // Cerrar actividad anterior si existe (evitar escaneo masivo y calcular duración en app)
+    const registroAbierto = await prisma.registroActividad.findFirst({
+      where: { usuarioId, horaFin: null },
+      orderBy: { horaInicio: 'desc' }
     });
 
-    // Calcular duración de registros cerrados
-    await prisma.$executeRaw`
-      UPDATE registro_actividades
-      SET 
-        duracion_seg = EXTRACT(EPOCH FROM (hora_fin - hora_inicio))::integer,
-        duracion_hms = (hora_fin - hora_inicio)::text
-      WHERE usuario_id = ${usuarioId}
-        AND duracion_seg IS NULL
-        AND hora_fin IS NOT NULL
-    `;
+    if (registroAbierto) {
+      const horaFin = new Date();
+      const duracionSeg = registroAbierto.horaInicio
+        ? Math.max(0, Math.floor((horaFin - registroAbierto.horaInicio) / 1000))
+        : null;
+
+      // Actualizar sólo si sigue abierto (condición en DB) para evitar condiciones de carrera
+      await prisma.registroActividad.updateMany({
+        where: { id: registroAbierto.id, horaFin: null },
+        data: { horaFin, duracionSeg, estado: 'Finalizado' }
+      });
+    }
 
     // Crear nuevo registro
+    // Obtener fecha local (sin componente de hora para evitar problemas de zona horaria)
+    const now = new Date();
+    const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
     const nuevoRegistro = await prisma.registroActividad.create({
       data: {
         usuarioId,
         actividadId,
         subactividadId: subactividadId || null,
         observaciones: observaciones || null,
+        fecha: localDate,
         horaInicio: new Date(),
         estado: 'Iniciado'
       },
@@ -204,18 +210,22 @@ export const stopActivity = async (req, res) => {
     const horaFin = new Date();
     const duracionSeg = Math.floor((horaFin - registroActual.horaInicio) / 1000);
 
-    const registroActualizado = await prisma.registroActividad.update({
-      where: { id: registroActual.id },
-      data: {
-        horaFin,
-        duracionSeg,
-        estado: 'Finalizado'
-      },
-      include: {
-        actividad: true,
-        subactividad: true
-      }
+    // Proteger contra condiciones de carrera: actualizar sólo si sigue abierto
+    const updatedCount = await prisma.registroActividad.updateMany({
+      where: { id: registroActual.id, horaFin: null },
+      data: { horaFin, duracionSeg, estado: 'Finalizado' }
     });
+
+    // Volver a leer el registro si se actualizó para incluir relaciones
+    const registroActualizado = updatedCount.count > 0
+      ? await prisma.registroActividad.findUnique({
+          where: { id: registroActual.id },
+          include: { actividad: true, subactividad: true }
+        })
+      : await prisma.registroActividad.findUnique({
+          where: { id: registroActual.id },
+          include: { actividad: true, subactividad: true }
+        });
 
     console.log(`⏹️ Actividad detenida: Usuario ${usuarioId} - Duración: ${duracionSeg}s`);
 
@@ -276,6 +286,23 @@ export const getTodaySummary = async (req, res) => {
   try {
     const usuarioId = req.user.id;
 
+    // Determinar fecha local o la provista en query (YYYY-MM-DD)
+    let dateStr = req.query?.date;
+    if (!dateStr) {
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      dateStr = `${now.getFullYear()}-${mm}-${dd}`;
+    }
+
+    // Cache key
+    const cacheKey = `${usuarioId}:${dateStr}`;
+    const nowTs = Date.now();
+    const cached = summaryCache.get(cacheKey);
+    if (cached && (nowTs - cached.ts) < CACHE_TTL_MS) {
+      return res.json({ success: true, data: cached.data, cached: true });
+    }
+
     // Agrupa por actividad y suma duraciones (incluyendo actividades en curso)
     const resumen = await prisma.$queryRaw`
       SELECT 
@@ -283,7 +310,7 @@ export const getTodaySummary = async (req, res) => {
         SUM(
           CASE 
             WHEN r.hora_fin IS NULL THEN 
-              EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - r.hora_inicio))::integer
+              EXTRACT(EPOCH FROM (NOW() - r.hora_inicio))::integer
             ELSE 
               COALESCE(r.duracion_seg, 0)
           END
@@ -291,15 +318,15 @@ export const getTodaySummary = async (req, res) => {
       FROM registro_actividades r
       JOIN actividades a ON r.actividad_id = a.id
       WHERE r.usuario_id = ${usuarioId}
-        AND r.fecha = CURRENT_DATE
+        AND r.fecha = ${dateStr}::date
       GROUP BY a.id, a.nombre_actividad
       ORDER BY "duracionSeg" DESC
     `;
 
-    res.json({
-      success: true,
-      data: resumen
-    });
+    // Guardar en caché
+    summaryCache.set(cacheKey, { ts: nowTs, data: resumen });
+
+    res.json({ success: true, data: resumen });
 
   } catch (error) {
     console.error('❌ Error en getTodaySummary:', error);
@@ -317,7 +344,23 @@ export const getTodayLog = async (req, res) => {
   try {
     const usuarioId = req.user.id;
 
-    // Usar query SQL directo para asegurar que usa CURRENT_DATE del servidor
+    // Determinar fecha local o la provista en query (YYYY-MM-DD)
+    let dateStr = req.query?.date;
+    if (!dateStr) {
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      dateStr = `${now.getFullYear()}-${mm}-${dd}`;
+    }
+
+    // Cache key
+    const cacheKey = `${usuarioId}:${dateStr}`;
+    const nowTs = Date.now();
+    const cached = logCache.get(cacheKey);
+    if (cached && (nowTs - cached.ts) < CACHE_TTL_MS) {
+      return res.json({ success: true, data: cached.data, cached: true });
+    }
+
     const registros = await prisma.$queryRaw`
       SELECT 
         r.id,
@@ -332,14 +375,14 @@ export const getTodayLog = async (req, res) => {
       JOIN actividades a ON r.actividad_id = a.id
       LEFT JOIN subactividades s ON r.subactividad_id = s.id
       WHERE r.usuario_id = ${usuarioId}
-        AND r.fecha = CURRENT_DATE
+        AND r.fecha = ${dateStr}::date
       ORDER BY r.hora_inicio DESC
     `;
 
-    res.json({
-      success: true,
-      data: registros
-    });
+    // Guardar en caché
+    logCache.set(cacheKey, { ts: nowTs, data: registros });
+
+    res.json({ success: true, data: registros });
 
   } catch (error) {
     console.error('❌ Error en getTodayLog:', error);

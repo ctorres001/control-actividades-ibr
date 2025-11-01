@@ -47,8 +47,8 @@ export const authenticate = async (req, res, next) => {
       nombreUsuario: usuario.nombreUsuario,
       nombreCompleto: usuario.nombreCompleto,
       rol: usuario.rol.nombre,
-      campañaId: usuario.campañaId,
-      campañaNombre: usuario.campaña.nombre
+      campañaId: usuario.campañaId ?? null,
+      campañaNombre: usuario.campaña?.nombre ?? null
     };
 
     // Continuar con la siguiente función

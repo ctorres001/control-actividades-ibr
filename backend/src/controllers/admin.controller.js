@@ -1,0 +1,912 @@
+import { prisma } from '../utils/prisma.js';
+import bcrypt from 'bcrypt';
+
+// ===== USUARIOS =====
+
+const getUsers = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { rolId, campañaId, estado } = req.query;
+
+    // Construir filtros
+    const where = {};
+    if (rolId) where.rolId = parseInt(rolId);
+    if (campañaId) where.campañaId = parseInt(campañaId);
+    if (estado) where.estado = estado === 'Activo';
+
+    const usuarios = await prisma.usuario.findMany({
+      where,
+      include: {
+        rol: {
+          select: { nombre: true }
+        },
+        campaña: {
+          select: { nombre: true }
+        }
+      },
+      orderBy: { nombreCompleto: 'asc' }
+    });
+
+    res.json(usuarios);
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
+    res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
+};
+
+const createUser = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { nombreUsuario, nombreCompleto, correoElectronico, contraseña, rolId, campañaId, estado } = req.body;
+
+    // Validar campos requeridos
+    if (!nombreUsuario || !nombreCompleto || !contraseña || !rolId) {
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    }
+
+    // Validar formato de contraseña
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(contraseña)) {
+      return res.status(400).json({ 
+        error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial'
+      });
+    }
+
+    // Verificar si el usuario ya existe
+    const existingUser = await prisma.usuario.findUnique({
+      where: { nombreUsuario }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'El nombre de usuario ya existe' });
+    }
+
+    // Hash de la contraseña
+    const hashedPassword = await bcrypt.hash(contraseña, 10);
+
+    // Crear usuario
+    const nuevoUsuario = await prisma.usuario.create({
+      data: {
+        nombreUsuario,
+        nombreCompleto,
+        correoElectronico,
+        contraseña: hashedPassword,
+        rolId: parseInt(rolId),
+        campañaId: campañaId ? parseInt(campañaId) : null,
+        estado: estado === 'Activo'
+      },
+      include: {
+        rol: {
+          select: { nombre: true }
+        },
+        campaña: {
+          select: { nombre: true }
+        }
+      }
+    });
+
+    res.status(201).json(nuevoUsuario);
+  } catch (error) {
+    console.error('Error al crear usuario:', error);
+    res.status(500).json({ error: 'Error al crear usuario' });
+  }
+};
+
+const updateUser = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+    const { nombreUsuario, nombreCompleto, correoElectronico, contraseña, rolId, campañaId, estado } = req.body;
+
+    // Verificar si el usuario existe
+    const existingUser = await prisma.usuario.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Preparar datos de actualización
+    const updateData = {
+      nombreUsuario,
+      nombreCompleto,
+      correoElectronico,
+      rolId: parseInt(rolId),
+      campañaId: campañaId ? parseInt(campañaId) : null,
+      estado: estado === 'Activo'
+    };
+
+    // Si se proporciona contraseña, validarla y hashearla
+    if (contraseña && contraseña.trim() !== '') {
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!passwordRegex.test(contraseña)) {
+        return res.status(400).json({ 
+          error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial'
+        });
+      }
+      updateData.contraseña = await bcrypt.hash(contraseña, 10);
+    }
+
+    // Actualizar usuario
+    const usuarioActualizado = await prisma.usuario.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+      include: {
+        rol: {
+          select: { nombre: true }
+        },
+        campaña: {
+          select: { nombre: true }
+        }
+      }
+    });
+
+    res.json(usuarioActualizado);
+  } catch (error) {
+    console.error('Error al actualizar usuario:', error);
+    res.status(500).json({ error: 'Error al actualizar usuario' });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+
+    // Verificar si el usuario existe
+    const existingUser = await prisma.usuario.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Verificar si tiene registros asociados
+    const registrosCount = await prisma.registro.count({
+      where: { usuarioId: parseInt(id) }
+    });
+
+    if (registrosCount > 0) {
+      return res.status(400).json({ 
+        error: `No se puede eliminar el usuario porque tiene ${registrosCount} registros asociados` 
+      });
+    }
+
+    // Eliminar usuario
+    await prisma.usuario.delete({
+      where: { id: parseInt(id) }
+    });
+
+    res.json({ message: 'Usuario eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
+    res.status(500).json({ error: 'Error al eliminar usuario' });
+  }
+};
+
+const changePassword = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ error: 'La nueva contraseña es requerida' });
+    }
+
+    // Validar formato de contraseña
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ 
+        error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial'
+      });
+    }
+
+    // Verificar si el usuario existe
+    const existingUser = await prisma.usuario.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Hash de la nueva contraseña
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Actualizar contraseña
+    await prisma.usuario.update({
+      where: { id: parseInt(id) },
+      data: { contraseña: hashedPassword }
+    });
+
+    res.json({ message: 'Contraseña actualizada exitosamente' });
+  } catch (error) {
+    console.error('Error al cambiar contraseña:', error);
+    res.status(500).json({ error: 'Error al cambiar contraseña' });
+  }
+};
+
+// ===== ACTIVIDADES =====
+
+const getActivities = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const actividades = await prisma.actividad.findMany({
+      include: {
+        subactividades: {
+          orderBy: { orden: 'asc' }
+        }
+      },
+      orderBy: { orden: 'asc' }
+    });
+
+    res.json(actividades);
+  } catch (error) {
+    console.error('Error al obtener actividades:', error);
+    res.status(500).json({ error: 'Error al obtener actividades' });
+  }
+};
+
+const createActivity = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { nombreActividad, descripcion, orden, activo } = req.body;
+
+    // Validar campos requeridos
+    if (!nombreActividad || orden === undefined) {
+      return res.status(400).json({ error: 'Nombre y orden son requeridos' });
+    }
+
+    // Verificar si la actividad ya existe
+    const existingActivity = await prisma.actividad.findUnique({
+      where: { nombreActividad }
+    });
+
+    if (existingActivity) {
+      return res.status(400).json({ error: 'Ya existe una actividad con ese nombre' });
+    }
+
+    // Crear actividad
+    const nuevaActividad = await prisma.actividad.create({
+      data: {
+        nombreActividad,
+        descripcion: descripcion || '',
+        orden: parseInt(orden),
+        activo: activo !== false
+      }
+    });
+
+    res.status(201).json(nuevaActividad);
+  } catch (error) {
+    console.error('Error al crear actividad:', error);
+    res.status(500).json({ error: 'Error al crear actividad' });
+  }
+};
+
+const updateActivity = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+    const { nombreActividad, descripcion, orden, activo } = req.body;
+
+    // Verificar si la actividad existe
+    const existingActivity = await prisma.actividad.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existingActivity) {
+      return res.status(404).json({ error: 'Actividad no encontrada' });
+    }
+
+    // Si se cambia el nombre, verificar que no exista otra con ese nombre
+    if (nombreActividad && nombreActividad !== existingActivity.nombreActividad) {
+      const duplicateActivity = await prisma.actividad.findUnique({
+        where: { nombreActividad }
+      });
+
+      if (duplicateActivity) {
+        return res.status(400).json({ error: 'Ya existe una actividad con ese nombre' });
+      }
+    }
+
+    // Actualizar actividad
+    const actividadActualizada = await prisma.actividad.update({
+      where: { id: parseInt(id) },
+      data: {
+        nombreActividad,
+        descripcion,
+        orden: parseInt(orden),
+        activo
+      }
+    });
+
+    res.json(actividadActualizada);
+  } catch (error) {
+    console.error('Error al actualizar actividad:', error);
+    res.status(500).json({ error: 'Error al actualizar actividad' });
+  }
+};
+
+const deleteActivity = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+
+    // Verificar si la actividad existe
+    const existingActivity = await prisma.actividad.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existingActivity) {
+      return res.status(404).json({ error: 'Actividad no encontrada' });
+    }
+
+    // Verificar si tiene registros asociados
+    const registrosCount = await prisma.registro.count({
+      where: { actividadId: parseInt(id) }
+    });
+
+    if (registrosCount > 0) {
+      return res.status(400).json({ 
+        error: `No se puede eliminar la actividad porque tiene ${registrosCount} registros asociados` 
+      });
+    }
+
+    // Eliminar actividad (cascade eliminará subactividades)
+    await prisma.actividad.delete({
+      where: { id: parseInt(id) }
+    });
+
+    res.json({ message: 'Actividad eliminada exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar actividad:', error);
+    res.status(500).json({ error: 'Error al eliminar actividad' });
+  }
+};
+
+const toggleActivityStatus = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+    const { activo } = req.body;
+
+    // Verificar si la actividad existe
+    const existingActivity = await prisma.actividad.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existingActivity) {
+      return res.status(404).json({ error: 'Actividad no encontrada' });
+    }
+
+    // Actualizar solo el campo activo
+    const actividadActualizada = await prisma.actividad.update({
+      where: { id: parseInt(id) },
+      data: { activo }
+    });
+
+    res.json(actividadActualizada);
+  } catch (error) {
+    console.error('Error al cambiar estado de actividad:', error);
+    res.status(500).json({ error: 'Error al cambiar estado de actividad' });
+  }
+};
+
+// ===== CAMPAÑAS =====
+
+const getCampaigns = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const campañas = await prisma.campaña.findMany({
+      orderBy: { nombre: 'asc' }
+    });
+
+    res.json(campañas);
+  } catch (error) {
+    console.error('Error al obtener campañas:', error);
+    res.status(500).json({ error: 'Error al obtener campañas' });
+  }
+};
+
+// ===== SUBACTIVIDADES =====
+
+const getSubactivities = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { actividadId } = req.query;
+    const where = actividadId ? { actividadId: parseInt(actividadId) } : {};
+
+    const subactividades = await prisma.subactividad.findMany({
+      where,
+      include: {
+        actividad: { select: { id: true, nombreActividad: true } }
+      },
+      orderBy: [{ actividadId: 'asc' }, { orden: 'asc' }]
+    });
+
+    res.json(subactividades);
+  } catch (error) {
+    console.error('Error al obtener subactividades:', error);
+    res.status(500).json({ error: 'Error al obtener subactividades' });
+  }
+};
+
+const createSubactivity = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { actividadId, nombreSubactividad, descripcion, orden, activo } = req.body;
+    if (!actividadId || !nombreSubactividad) {
+      return res.status(400).json({ error: 'actividadId y nombreSubactividad son requeridos' });
+    }
+
+    // Validar duplicado por actividad
+    const dup = await prisma.subactividad.findFirst({
+      where: { actividadId: parseInt(actividadId), nombreSubactividad }
+    });
+    if (dup) {
+      return res.status(400).json({ error: 'Ya existe una subactividad con ese nombre en la actividad seleccionada' });
+    }
+
+    const nueva = await prisma.subactividad.create({
+      data: {
+        actividadId: parseInt(actividadId),
+        nombreSubactividad,
+        descripcion: descripcion || '',
+        orden: orden !== undefined ? parseInt(orden) : 0,
+        activo: activo !== false
+      }
+    });
+
+    res.status(201).json(nueva);
+  } catch (error) {
+    console.error('Error al crear subactividad:', error);
+    res.status(500).json({ error: 'Error al crear subactividad' });
+  }
+};
+
+const updateSubactivity = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+    const { actividadId, nombreSubactividad, descripcion, orden, activo } = req.body;
+
+    const existing = await prisma.subactividad.findUnique({ where: { id: parseInt(id) } });
+    if (!existing) return res.status(404).json({ error: 'Subactividad no encontrada' });
+
+    if (nombreSubactividad && nombreSubactividad !== existing.nombreSubactividad) {
+      const dup = await prisma.subactividad.findFirst({
+        where: { actividadId: actividadId ? parseInt(actividadId) : existing.actividadId, nombreSubactividad }
+      });
+      if (dup) return res.status(400).json({ error: 'Ya existe una subactividad con ese nombre en la actividad' });
+    }
+
+    const subAct = await prisma.subactividad.update({
+      where: { id: parseInt(id) },
+      data: {
+        actividadId: actividadId ? parseInt(actividadId) : undefined,
+        nombreSubactividad: nombreSubactividad ?? undefined,
+        descripcion: descripcion ?? undefined,
+        orden: orden !== undefined ? parseInt(orden) : undefined,
+        activo: activo ?? undefined
+      }
+    });
+
+    res.json(subAct);
+  } catch (error) {
+    console.error('Error al actualizar subactividad:', error);
+    res.status(500).json({ error: 'Error al actualizar subactividad' });
+  }
+};
+
+const deleteSubactivity = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+    const existing = await prisma.subactividad.findUnique({ where: { id: parseInt(id) } });
+    if (!existing) return res.status(404).json({ error: 'Subactividad no encontrada' });
+
+    const registrosCount = await prisma.registroActividad.count({ where: { subactividadId: parseInt(id) } });
+    if (registrosCount > 0) {
+      return res.status(400).json({ error: `No se puede eliminar: ${registrosCount} registros asociados` });
+    }
+
+    await prisma.subactividad.delete({ where: { id: parseInt(id) } });
+    res.json({ message: 'Subactividad eliminada exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar subactividad:', error);
+    res.status(500).json({ error: 'Error al eliminar subactividad' });
+  }
+};
+
+const toggleSubactivityStatus = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    const { id } = req.params;
+    const { activo } = req.body;
+    const existing = await prisma.subactividad.findUnique({ where: { id: parseInt(id) } });
+    if (!existing) return res.status(404).json({ error: 'Subactividad no encontrada' });
+    const updated = await prisma.subactividad.update({ where: { id: parseInt(id) }, data: { activo } });
+    res.json(updated);
+  } catch (error) {
+    console.error('Error al cambiar estado de subactividad:', error);
+    res.status(500).json({ error: 'Error al cambiar estado de subactividad' });
+  }
+};
+
+// ===== ROLES =====
+
+const CORE_ROLES = ['Asesor', 'Supervisor', 'Administrador'];
+
+const getRolesAdmin = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    const roles = await prisma.rol.findMany({ orderBy: { id: 'asc' } });
+    res.json(roles);
+  } catch (error) {
+    console.error('Error al obtener roles:', error);
+    res.status(500).json({ error: 'Error al obtener roles' });
+  }
+};
+
+const createRole = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    const { nombre } = req.body;
+    if (!nombre) return res.status(400).json({ error: 'El nombre es requerido' });
+    if (CORE_ROLES.includes(nombre)) return res.status(400).json({ error: 'Ese rol ya es núcleo del sistema' });
+    const exists = await prisma.rol.findUnique({ where: { nombre } });
+    if (exists) return res.status(400).json({ error: 'Ya existe un rol con ese nombre' });
+    const rol = await prisma.rol.create({ data: { nombre } });
+    res.status(201).json(rol);
+  } catch (error) {
+    console.error('Error al crear rol:', error);
+    res.status(500).json({ error: 'Error al crear rol' });
+  }
+};
+
+const updateRole = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    const { id } = req.params;
+    const { nombre } = req.body;
+    const role = await prisma.rol.findUnique({ where: { id: parseInt(id) } });
+    if (!role) return res.status(404).json({ error: 'Rol no encontrado' });
+    if (CORE_ROLES.includes(role.nombre)) return res.status(400).json({ error: 'No se puede renombrar un rol núcleo' });
+    if (!nombre) return res.status(400).json({ error: 'El nombre es requerido' });
+    if (CORE_ROLES.includes(nombre)) return res.status(400).json({ error: 'Nombre reservado para rol núcleo' });
+    const exists = await prisma.rol.findUnique({ where: { nombre } });
+    if (exists && exists.id !== role.id) return res.status(400).json({ error: 'Ya existe un rol con ese nombre' });
+    const updated = await prisma.rol.update({ where: { id: role.id }, data: { nombre } });
+    res.json(updated);
+  } catch (error) {
+    console.error('Error al actualizar rol:', error);
+    res.status(500).json({ error: 'Error al actualizar rol' });
+  }
+};
+
+const deleteRole = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    const { id } = req.params;
+    const role = await prisma.rol.findUnique({ where: { id: parseInt(id) } });
+    if (!role) return res.status(404).json({ error: 'Rol no encontrado' });
+    if (CORE_ROLES.includes(role.nombre)) return res.status(400).json({ error: 'No se puede eliminar un rol núcleo' });
+    const usersCount = await prisma.usuario.count({ where: { rolId: role.id } });
+    if (usersCount > 0) return res.status(400).json({ error: `No se puede eliminar, ${usersCount} usuarios asociados` });
+    await prisma.rol.delete({ where: { id: role.id } });
+    res.json({ message: 'Rol eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar rol:', error);
+    res.status(500).json({ error: 'Error al eliminar rol' });
+  }
+};
+
+// ===== ASIGNACIÓN DE CAMPAÑAS A SUPERVISORES =====
+
+const getSupervisorCampaigns = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    const { id } = req.params;
+    
+    // Verificar que el usuario existe y es supervisor
+    const usuario = await prisma.usuario.findUnique({ 
+      where: { id: parseInt(id) },
+      include: { rol: true }
+    });
+    
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (usuario.rol.nombre !== 'Supervisor') {
+      return res.status(400).json({ error: 'El usuario no es supervisor' });
+    }
+    
+    // Obtener campañas asignadas desde tabla M:N
+    const asignaciones = await prisma.supervisorCampaña.findMany({
+      where: { supervisorId: parseInt(id) },
+      include: { campaña: true }
+    });
+    
+    const campañas = asignaciones.map(a => a.campaña);
+    res.json(campañas);
+  } catch (error) {
+    console.error('Error al obtener campañas del supervisor:', error);
+    res.status(500).json({ error: 'Error al obtener campañas del supervisor' });
+  }
+};
+
+const setSupervisorCampaigns = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    const { id } = req.params;
+    const { campañaIds } = req.body;
+    
+    if (!Array.isArray(campañaIds)) {
+      return res.status(400).json({ error: 'campañaIds debe ser un array' });
+    }
+    
+    // Verificar que el usuario existe y es supervisor
+    const usuario = await prisma.usuario.findUnique({ 
+      where: { id: parseInt(id) },
+      include: { rol: true }
+    });
+    
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (usuario.rol.nombre !== 'Supervisor') {
+      return res.status(400).json({ error: 'El usuario no es supervisor' });
+    }
+    
+    // Eliminar asignaciones actuales
+    await prisma.supervisorCampaña.deleteMany({
+      where: { supervisorId: parseInt(id) }
+    });
+    
+    // Crear nuevas asignaciones
+    if (campañaIds.length > 0) {
+      await prisma.supervisorCampaña.createMany({
+        data: campañaIds.map(cId => ({
+          supervisorId: parseInt(id),
+          campañaId: parseInt(cId)
+        }))
+      });
+    }
+    
+    // Devolver las campañas asignadas
+    const asignaciones = await prisma.supervisorCampaña.findMany({
+      where: { supervisorId: parseInt(id) },
+      include: { campaña: true }
+    });
+    
+    res.json({
+      message: 'Campañas asignadas exitosamente',
+      campañas: asignaciones.map(a => a.campaña)
+    });
+  } catch (error) {
+    console.error('Error al asignar campañas al supervisor:', error);
+    res.status(500).json({ error: 'Error al asignar campañas al supervisor' });
+  }
+};
+
+const createCampaign = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { nombre } = req.body;
+
+    // Validar campo requerido
+    if (!nombre) {
+      return res.status(400).json({ error: 'El nombre es requerido' });
+    }
+
+    // Verificar si la campaña ya existe
+    const existingCampaign = await prisma.campaña.findFirst({
+      where: { nombre }
+    });
+
+    if (existingCampaign) {
+      return res.status(400).json({ error: 'Ya existe una campaña con ese nombre' });
+    }
+
+    // Crear campaña
+    const nuevaCampaña = await prisma.campaña.create({
+      data: { nombre }
+    });
+
+    res.status(201).json(nuevaCampaña);
+  } catch (error) {
+    console.error('Error al crear campaña:', error);
+    res.status(500).json({ error: 'Error al crear campaña' });
+  }
+};
+
+const updateCampaign = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+    const { nombre } = req.body;
+
+    // Verificar si la campaña existe
+    const existingCampaign = await prisma.campaña.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existingCampaign) {
+      return res.status(404).json({ error: 'Campaña no encontrada' });
+    }
+
+    // Si se cambia el nombre, verificar que no exista otra con ese nombre
+    if (nombre && nombre !== existingCampaign.nombre) {
+      const duplicateCampaign = await prisma.campaña.findFirst({
+        where: { nombre }
+      });
+
+      if (duplicateCampaign) {
+        return res.status(400).json({ error: 'Ya existe una campaña con ese nombre' });
+      }
+    }
+
+    // Actualizar campaña
+    const campañaActualizada = await prisma.campaña.update({
+      where: { id: parseInt(id) },
+      data: { nombre }
+    });
+
+    res.json(campañaActualizada);
+  } catch (error) {
+    console.error('Error al actualizar campaña:', error);
+    res.status(500).json({ error: 'Error al actualizar campaña' });
+  }
+};
+
+const deleteCampaign = async (req, res) => {
+  try {
+    // Verificar que sea administrador
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { id } = req.params;
+
+    // Verificar si la campaña existe
+    const existingCampaign = await prisma.campaña.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existingCampaign) {
+      return res.status(404).json({ error: 'Campaña no encontrada' });
+    }
+
+    // Verificar si tiene usuarios asociados
+    const usuariosCount = await prisma.usuario.count({
+      where: { campañaId: parseInt(id) }
+    });
+
+    if (usuariosCount > 0) {
+      return res.status(400).json({ 
+        error: `No se puede eliminar la campaña porque tiene ${usuariosCount} usuarios asociados` 
+      });
+    }
+
+    // Eliminar campaña
+    await prisma.campaña.delete({
+      where: { id: parseInt(id) }
+    });
+
+    res.json({ message: 'Campaña eliminada exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar campaña:', error);
+    res.status(500).json({ error: 'Error al eliminar campaña' });
+  }
+};
+
+export {
+  // Usuarios
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  changePassword,
+  // Actividades
+  getActivities,
+  createActivity,
+  updateActivity,
+  deleteActivity,
+  toggleActivityStatus,
+  // Campañas
+  getCampaigns,
+  createCampaign,
+  updateCampaign,
+  deleteCampaign,
+  // Subactividades
+  getSubactivities,
+  createSubactivity,
+  updateSubactivity,
+  deleteSubactivity,
+  toggleSubactivityStatus,
+  // Roles (admin mgmt)
+  getRolesAdmin,
+  createRole,
+  updateRole,
+  deleteRole,
+  // Asignación campañas supervisor
+  getSupervisorCampaigns,
+  setSupervisorCampaigns
+};

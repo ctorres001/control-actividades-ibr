@@ -1,6 +1,9 @@
 import React from 'react';
 
 export default function ActivityGrid({ activities = [], currentActivityId, onStart, jornalFinished = false, disabled = false, dayStarted = false, breakActive = false }) {
+  // Debug: ver qué props recibe
+  console.log('🎯 ActivityGrid props:', { disabled, jornalFinished, dayStarted, breakActive, currentActivityId });
+  
   if (!activities || activities.length === 0) return null;
 
   const emojiMap = {

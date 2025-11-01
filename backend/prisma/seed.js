@@ -3,6 +3,7 @@
 // =====================================================
 
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -60,7 +61,7 @@ async function main() {
   console.log(`✅ ${campañas.length} campañas creadas\n`);
 
   // =====================================================
-  // 3. USUARIOS (contraseñas sin encriptar por ahora)
+  // 3. USUARIOS (con contraseñas encriptadas)
   // =====================================================
   console.log('👤 Creando usuarios...');
 
@@ -72,17 +73,27 @@ async function main() {
   const campañaVentas = await prisma.campaña.findUnique({ where: { nombre: 'Ventas' } });
   const campañaBO = await prisma.campaña.findUnique({ where: { nombre: 'BO_Calidda' } });
 
+  // Encriptar contraseñas
+  const hashSuper1 = await bcrypt.hash('Super1@2024', 10);
+  const hashSuper2 = await bcrypt.hash('Super2@2024', 10);
+  const hashAsesor1 = await bcrypt.hash('Asesor1@2024', 10);
+  const hashAsesor2 = await bcrypt.hash('Asesor2@2024', 10);
+  const hashAsesor3 = await bcrypt.hash('Asesor3@2024', 10);
+  const hashAsesor4 = await bcrypt.hash('Asesor4@2024', 10);
+  const hashAsesor5 = await bcrypt.hash('Asesor5@2024', 10);
+  const hashAdmin = await bcrypt.hash('Admin123!@#', 10);
+
   const usuarios = await Promise.all([
-    // Supervisores
+    // Supervisores (sin campañaId, se asignarán vía M:N después)
     prisma.usuario.upsert({
       where: { nombreUsuario: 'super1' },
       update: {},
       create: {
         nombreUsuario: 'super1',
-        contraseña: 'Super1@2024',
+        contraseña: hashSuper1,
         nombreCompleto: 'Supervisor 1',
         rolId: rolSupervisor.id,
-        campañaId: campañaPQRS.id,
+        campañaId: null,
         estado: true
       }
     }),
@@ -91,21 +102,21 @@ async function main() {
       update: {},
       create: {
         nombreUsuario: 'super2',
-        contraseña: 'Super2@2024',
+        contraseña: hashSuper2,
         nombreCompleto: 'Supervisor 2',
         rolId: rolSupervisor.id,
-        campañaId: campañaBO.id,
+        campañaId: null,
         estado: true
       }
     }),
-    // Asesores
+    // Asesores (con campañaId única)
     prisma.usuario.upsert({
       where: { nombreUsuario: 'asesor1' },
       update: {},
       create: {
         nombreUsuario: 'asesor1',
-        contraseña: 'Asesor1@2024',
-        nombreCompleto: 'Asesor 1',
+        contraseña: hashAsesor1,
+        nombreCompleto: 'Asesor 1 PQRS',
         rolId: rolAsesor.id,
         campañaId: campañaPQRS.id,
         estado: true
@@ -116,8 +127,8 @@ async function main() {
       update: {},
       create: {
         nombreUsuario: 'asesor2',
-        contraseña: 'Asesor2@2024',
-        nombreCompleto: 'Asesor 2',
+        contraseña: hashAsesor2,
+        nombreCompleto: 'Asesor 2 PQRS',
         rolId: rolAsesor.id,
         campañaId: campañaPQRS.id,
         estado: true
@@ -128,10 +139,10 @@ async function main() {
       update: {},
       create: {
         nombreUsuario: 'asesor3',
-        contraseña: 'Asesor3@2024',
-        nombreCompleto: 'Asesor 3',
+        contraseña: hashAsesor3,
+        nombreCompleto: 'Asesor 3 Ventas',
         rolId: rolAsesor.id,
-        campañaId: campañaBO.id,
+        campañaId: campañaVentas.id,
         estado: true
       }
     }),
@@ -140,32 +151,98 @@ async function main() {
       update: {},
       create: {
         nombreUsuario: 'asesor4',
-        contraseña: 'Asesor4@2024',
-        nombreCompleto: 'Asesor 4',
+        contraseña: hashAsesor4,
+        nombreCompleto: 'Asesor 4 BO',
         rolId: rolAsesor.id,
         campañaId: campañaBO.id,
         estado: true
       }
     }),
-    // Administrador
+    prisma.usuario.upsert({
+      where: { nombreUsuario: 'asesor5' },
+      update: {},
+      create: {
+        nombreUsuario: 'asesor5',
+        contraseña: hashAsesor5,
+        nombreCompleto: 'Asesor 5 BO',
+        rolId: rolAsesor.id,
+        campañaId: campañaBO.id,
+        estado: true
+      }
+    }),
+    // Administrador (sin campañaId)
     prisma.usuario.upsert({
       where: { nombreUsuario: 'admin' },
       update: {},
       create: {
         nombreUsuario: 'admin',
-        contraseña: 'Admin123!@#',
+        contraseña: hashAdmin,
         nombreCompleto: 'Administrador',
         rolId: rolAdmin.id,
-        campañaId: campañaPQRS.id,
+        campañaId: null,
         estado: true
       }
     })
   ]);
 
-  console.log(`✅ ${usuarios.length} usuarios creados\n`);
+  console.log(`✅ ${usuarios.length} usuarios creados`);
 
   // =====================================================
-  // 4. ACTIVIDADES
+  // 4. ASIGNACIONES DE SUPERVISORES A CAMPAÑAS (M:N)
+  // =====================================================
+  console.log('🔗 Asignando campañas a supervisores...');
+
+  const super1 = await prisma.usuario.findUnique({ where: { nombreUsuario: 'super1' } });
+  const super2 = await prisma.usuario.findUnique({ where: { nombreUsuario: 'super2' } });
+
+  // Supervisor 1: PQRS + Ventas
+  await prisma.supervisorCampaña.upsert({
+    where: {
+      supervisorId_campañaId: {
+        supervisorId: super1.id,
+        campañaId: campañaPQRS.id
+      }
+    },
+    update: {},
+    create: {
+      supervisorId: super1.id,
+      campañaId: campañaPQRS.id
+    }
+  });
+
+  await prisma.supervisorCampaña.upsert({
+    where: {
+      supervisorId_campañaId: {
+        supervisorId: super1.id,
+        campañaId: campañaVentas.id
+      }
+    },
+    update: {},
+    create: {
+      supervisorId: super1.id,
+      campañaId: campañaVentas.id
+    }
+  });
+
+  // Supervisor 2: BO_Calidda
+  await prisma.supervisorCampaña.upsert({
+    where: {
+      supervisorId_campañaId: {
+        supervisorId: super2.id,
+        campañaId: campañaBO.id
+      }
+    },
+    update: {},
+    create: {
+      supervisorId: super2.id,
+      campañaId: campañaBO.id
+    }
+  });
+
+  console.log(`✅ Supervisores asignados a campañas\n`);
+
+  // =====================================================
+  // 5. ACTIVIDADES
   // =====================================================
   console.log('📋 Creando actividades...');
 
@@ -275,7 +352,7 @@ async function main() {
   console.log(`✅ ${actividades.length} actividades creadas\n`);
 
   // =====================================================
-  // 5. SUBACTIVIDADES
+  // 6. SUBACTIVIDADES
   // =====================================================
   console.log('📌 Creando subactividades...');
 

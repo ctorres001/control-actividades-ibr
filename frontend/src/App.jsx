@@ -10,7 +10,9 @@ import { AuthProvider } from './context/AuthContext';
 // Pages
 import LoginPage from './pages/LoginPage';
 import AsesorDashboard from './pages/AsesorDashboard'; // ← Agregar import
+import SupervisorDashboard from './pages/SupervisorDashboard';
 import ChangePasswordPage from './pages/ChangePasswordPage';
+import AdminDashboard from './pages/AdminDashboard';
 
 // Configurar React Query
 const queryClient = new QueryClient({
@@ -45,19 +47,9 @@ function App() {
               {/* Rutas protegidas - las crearemos después */}
               <Route path="/asesor" element={<AsesorDashboard />} />
               
-              <Route path="/supervisor" element={
-                <div className="p-8">
-                  <h1 className="text-2xl font-bold text-primary-700">Dashboard Supervisor</h1>
-                  <p className="text-neutral-600">(próximamente)</p>
-                </div>
-              } />
+              <Route path="/supervisor" element={<SupervisorDashboard />} />
               
-              <Route path="/admin" element={
-                <div className="p-8">
-                  <h1 className="text-2xl font-bold text-primary-700">Dashboard Admin</h1>
-                  <p className="text-neutral-600">(próximamente)</p>
-                </div>
-              } />
+              <Route path="/admin" element={<AdminDashboard />} />
 
               {/* Ruta 404 */}
               <Route path="*" element={

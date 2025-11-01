@@ -134,6 +134,7 @@ export default function LoginPage() {
                 name="username"
                 type="text"
                 required
+                autoComplete="off"
                 className="input-field"
                 placeholder="asesor1"
                 value={username}
@@ -152,6 +153,7 @@ export default function LoginPage() {
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete="off"
                   className="input-field pr-10"
                   placeholder="••••••••"
                   value={password}

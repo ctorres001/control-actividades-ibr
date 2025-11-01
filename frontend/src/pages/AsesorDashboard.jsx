@@ -9,6 +9,7 @@ import DailySummary from '../components/DailySummary';
 import Timeline from '../components/Timeline';
 import ChartBar from '../components/ChartBar';
 import { toast } from 'react-hot-toast';
+import { getTodayLocal } from '../utils/dateUtils';
 
 export default function AsesorDashboard() {
   const { user, logout } = useAuth();
@@ -38,7 +39,7 @@ export default function AsesorDashboard() {
   }, []);
 
   const loadSummaryAndLog = useCallback(async () => {
-    const date = new Date().toISOString().slice(0,10);
+    const date = getTodayLocal();
     try {
       const s = await activityService.getSummary(date);
       setSummary(s || []);
@@ -54,9 +55,11 @@ export default function AsesorDashboard() {
   }, []);
 
   const restoreOpen = useCallback(async () => {
-    const date = new Date().toISOString().slice(0,10);
+    const date = getTodayLocal();
     try {
       const res = await activityService.getOpenActivity(date);
+      console.log('🔍 restoreOpen response:', res);
+      
       if (res && res.id) {
         setCurrentRegistroId(res.id);
         setCurrentActivityId(res.actividadId);
@@ -68,10 +71,13 @@ export default function AsesorDashboard() {
           const now = new Date();
           const secondsElapsed = Math.floor((now - start) / 1000);
           setCurrentStartOffset(secondsElapsed);
+          console.log('✅ Actividad restaurada:', res.actividad?.nombreActividad, 'Offset:', secondsElapsed);
         }
+      } else {
+        console.log('ℹ️ No hay actividad activa para restaurar');
       }
     } catch (err) {
-      console.debug('restoreOpen error', err);
+      console.error('❌ Error en restoreOpen:', err);
     }
   }, []);
 
@@ -101,64 +107,81 @@ export default function AsesorDashboard() {
     // Feedback visual inmediato
     const toastId = toast.loading(`Iniciando ${activity.nombreActividad}...`, { id: 'starting-activity' });
 
-    // Si la actividad es "Salida", manejar caso especial
-    if (activity.nombreActividad === 'Salida') {
+    try {
+      // Si la actividad es "Salida", manejar caso especial
+      if (activity.nombreActividad === 'Salida') {
+        try {
+          // Detener actividad actual si existe
+          if (currentRegistroId) {
+            await activityService.stopActivity();
+          }
+          
+          // Iniciar y detener "Salida" inmediatamente
+          const res = await activityService.startActivity({ actividadId: activity.id });
+          if (res && res.id) {
+            await activityService.stopActivity();
+            setCurrentRegistroId(null);
+            setCurrentActivityId(null);
+            setCurrentActivityName('Jornada Finalizada');
+            setCurrentStartOffset(0);
+            toast.success('✅ Salida registrada. ¡Jornada finalizada!', { id: toastId });
+            await loadSummaryAndLog();
+          }
+        } catch (err) {
+          console.error('❌ Error en Salida:', err);
+          toast.error('No se pudo registrar la salida', { id: toastId });
+        }
+        return;
+      }
+
+      // Si necesita detalles (subactividad), abrir modal
+      const activitiesWithDetails = ['Seguimiento','Bandeja de Correo','Reportes','Auxiliares'];
+      if (activitiesWithDetails.includes(activity.nombreActividad)) {
+        toast.dismiss(toastId);
+        setPendingActivity(activity);
+        setShowModal(true);
+        return; // No resetear isStarting aquí, se hace al cerrar/confirmar modal
+      }
+
+      // Iniciar actividad normal
       try {
         // Detener actividad actual si existe
         if (currentRegistroId) {
           await activityService.stopActivity();
         }
-        
-        // Iniciar y detener "Salida" inmediatamente
+
         const res = await activityService.startActivity({ actividadId: activity.id });
+        console.log('🔍 Respuesta de startActivity:', res);
+        
         if (res && res.id) {
-          await activityService.stopActivity();
-          setCurrentRegistroId(null);
-          setCurrentActivityId(null);
-          setCurrentActivityName('Jornada Finalizada');
-          setCurrentStartOffset(0);
-          toast.success('✅ Salida registrada. ¡Jornada finalizada!', { id: toastId });
-          loadSummaryAndLog();
+          setCurrentRegistroId(res.id);
+          setCurrentActivityId(activity.id);
+          setCurrentActivityName(activity.nombreActividad);
+          setCurrentStartOffset(0); // Reiniciar desde 0
+          
+          console.log('✅ Estado actualizado:', {
+            currentRegistroId: res.id,
+            currentActivityId: activity.id,
+            currentActivityName: activity.nombreActividad,
+            currentStartOffset: 0
+          });
+          
+          toast.success(`✅ ${activity.nombreActividad} iniciada`, { id: toastId });
+          await loadSummaryAndLog(); // Esperar a que termine la recarga
+        } else {
+          console.error('❌ Respuesta sin ID:', res);
+          toast.error('Error: respuesta inválida del servidor', { id: toastId });
         }
       } catch (err) {
-        console.error(err);
-        toast.error('No se pudo registrar la salida', { id: toastId });
-      } finally {
-        setIsStarting(false);
-      }
-      return;
-    }
-
-    // Si necesita detalles (subactividad), abrir modal
-    const activitiesWithDetails = ['Seguimiento','Bandeja de Correo','Reportes','Auxiliares'];
-    if (activitiesWithDetails.includes(activity.nombreActividad)) {
-      toast.dismiss(toastId);
-      setPendingActivity(activity);
-      setShowModal(true);
-      setIsStarting(false); // Liberar bloqueo al abrir modal
-      return;
-    }
-
-    // Iniciar actividad normal
-    try {
-      // Detener actividad actual si existe
-      if (currentRegistroId) {
-        await activityService.stopActivity();
-      }
-
-      const res = await activityService.startActivity({ actividadId: activity.id });
-      if (res && res.id) {
-        setCurrentRegistroId(res.id);
-        setCurrentActivityId(activity.id);
-        setCurrentActivityName(activity.nombreActividad);
-        setCurrentStartOffset(0); // Reiniciar desde 0
-        toast.success(`✅ ${activity.nombreActividad} iniciada`, { id: toastId });
-        loadSummaryAndLog();
+        console.error('❌ Error iniciando actividad:', err);
+        toast.error('No se pudo iniciar la actividad', { id: toastId });
       }
     } catch (err) {
-      console.error(err);
-      toast.error('No se pudo iniciar la actividad', { id: toastId });
+      console.error('❌ Error general:', err);
+      toast.error('Error inesperado', { id: toastId });
     } finally {
+      // IMPORTANTE: Siempre resetear isStarting
+      console.log('🔓 Reseteando isStarting a false');
       setIsStarting(false);
     }
   };
@@ -168,6 +191,8 @@ export default function AsesorDashboard() {
     if (!pendingActivity) return;
     
     setIsStarting(true);
+    const toastId = toast.loading(`Iniciando ${pendingActivity.nombreActividad}...`, { id: 'starting-activity-details' });
+    
     try {
       // Detener actividad actual si existe
       if (currentRegistroId) {
@@ -180,20 +205,35 @@ export default function AsesorDashboard() {
         observaciones: comment 
       };
       
+      console.log('🔍 Iniciando actividad con detalles:', payload);
       const res = await activityService.startActivity(payload);
+      console.log('🔍 Respuesta de startActivity (con detalles):', res);
+      
       if (res && res.id) {
         setCurrentRegistroId(res.id);
         setCurrentActivityId(pendingActivity.id);
         setCurrentActivityName(pendingActivity.nombreActividad);
         setCurrentStartOffset(0);
-        toast.success(`✅ ${pendingActivity.nombreActividad} iniciada`, { id: 'start-with-details-success' });
-        loadSummaryAndLog();
+        
+        console.log('✅ Estado actualizado (con detalles):', {
+          currentRegistroId: res.id,
+          currentActivityId: pendingActivity.id,
+          currentActivityName: pendingActivity.nombreActividad
+        });
+        
+        toast.success(`✅ ${pendingActivity.nombreActividad} iniciada`, { id: toastId });
+        await loadSummaryAndLog();
+      } else {
+        console.error('❌ Respuesta sin ID (con detalles):', res);
+        toast.error('Error: respuesta inválida del servidor', { id: toastId });
       }
     } catch (err) {
-      console.error(err);
-      toast.error('Error iniciando actividad con detalles', { id: 'start-with-details-error' });
+      console.error('❌ Error iniciando actividad con detalles:', err);
+      console.error('❌ Detalles del error:', err.response?.data || err.message);
+      toast.error('Error iniciando actividad con detalles', { id: toastId });
     } finally {
       setPendingActivity(null);
+      console.log('🔓 Reseteando isStarting a false (modal)');
       setIsStarting(false);
     }
   };
@@ -207,8 +247,18 @@ export default function AsesorDashboard() {
     }
   };
 
+  // Debug: Log del estado actual en cada render
+  console.log('🔍 AsesorDashboard render:', {
+    isStarting,
+    isLoading,
+    currentActivityId,
+    currentActivityName,
+    dayStarted,
+    breakActive
+  });
+
   return (
-    <div className="p-6 relative">
+    <div className="min-h-screen bg-neutral-50 relative">
       {/* Spinner global de carga */}
       {isLoading && (
         <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -219,43 +269,34 @@ export default function AsesorDashboard() {
         </div>
       )}
 
-      <div className="mb-4 flex justify-between items-start">
-        <div className="flex items-start gap-3">
-          <img src="/ibr-logo.png" alt="IBR" className="h-12 w-12 object-contain" />
-          <div>
-            <h2 className="text-2xl font-bold leading-tight">Control de Actividades</h2>
-            <div className="text-sm text-neutral-600">
-              {(user?.nombreCompleto || user?.nombre_completo) || 'Usuario'}
-              {(() => {
-                const r = (user?.role || user?.rol || '').toString().toLowerCase();
-                const map = { asesor: 'Asesor', supervisor: 'Supervisor', admin: 'Administrador', administrador: 'Administrador' };
-                const label = map[r] || (r ? r.charAt(0).toUpperCase() + r.slice(1) : '');
-                return label ? ` • ${label}` : '';
-              })()}
+      {/* Header (mismo diseño que supervisor/admin) */}
+      <div className="bg-white border-b border-neutral-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center gap-3">
+              <img src="/ibr-logo.png" alt="IBR" className="h-10 w-10 object-contain" />
+              <div>
+                <h1 className="text-2xl font-bold text-primary-700">Panel Asesor</h1>
+                <p className="text-sm text-neutral-600 mt-1">
+                  {(user?.nombreCompleto || user?.nombre_completo) || 'Usuario'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button 
+                onClick={handleLogout}
+                className="px-4 py-2 bg-neutral-600 hover:bg-neutral-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                <span>🚪</span>
+                <span>Cerrar Sesión</span>
+              </button>
             </div>
           </div>
         </div>
-        <div className="flex gap-3">
-          {/* BOTÓN CAMBIAR CONTRASEÑA COMENTADO TEMPORALMENTE - Se activará desde panel de supervisor
-          <button 
-            onClick={() => navigate('/change-password')}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <span>🔒</span>
-            <span>Cambiar Contraseña</span>
-          </button>
-          */}
-          <button 
-            onClick={handleLogout}
-            className="px-4 py-2 bg-neutral-600 hover:bg-neutral-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <span>🚪</span>
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Contenedor principal */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <div className="mb-4">
             <h3 className="font-semibold mb-2">Registrar Actividad</h3>

@@ -14,6 +14,8 @@ import { prisma } from './utils/prisma.js';
 import authRoutes from './routes/auth.routes.js';
 import activityRoutes from './routes/activity.routes.js';
 import passwordRoutes from './routes/password.routes.js';
+import statsRoutes from './routes/stats.routes.js';
+import adminRoutes from './routes/admin.routes.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -33,17 +35,22 @@ app.use(helmet());
 app.use(compression());
 
 // Rate limiting - Protección contra abuso
+const GENERAL_RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_GENERAL_WINDOW_MS || `${1 * 60 * 1000}`, 10);
+const GENERAL_RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_GENERAL_MAX || '100', 10);
+const LOGIN_RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_LOGIN_WINDOW_MS || `${15 * 60 * 1000}`, 10);
+const LOGIN_RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_LOGIN_MAX || '5', 10);
+
 const generalLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minuto
-  max: 100, // 100 requests por minuto por IP
+  windowMs: GENERAL_RATE_LIMIT_WINDOW_MS, // por defecto 1 minuto
+  max: GENERAL_RATE_LIMIT_MAX, // por defecto 100 req/min/IP
   message: { error: 'Demasiadas solicitudes, intenta más tarde' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // 5 intentos de login
+  windowMs: LOGIN_RATE_LIMIT_WINDOW_MS, // por defecto 15 minutos
+  max: LOGIN_RATE_LIMIT_MAX, // por defecto 5 intentos
   message: { error: 'Demasiados intentos de login, espera 15 minutos' },
   skipSuccessfulRequests: true, // No contar logins exitosos
 });
@@ -173,6 +180,18 @@ app.use('/api/activities', generalLimiter, activityRoutes);
 app.use('/api/password', passwordRoutes);
 
 // =====================================================
+// RUTAS DE ESTADÍSTICAS
+// =====================================================
+
+app.use('/api/stats', generalLimiter, statsRoutes);
+
+// =====================================================
+// RUTAS DE ADMINISTRACIÓN
+// =====================================================
+
+app.use('/api/admin', generalLimiter, adminRoutes);
+
+// =====================================================
 // MANEJO DE ERRORES
 // =====================================================
 
@@ -213,6 +232,16 @@ app.listen(PORT, async () => {
   - GET  /api/auth/validate
   - POST /api/auth/logout
   `);
+
+  // Log de configuración relevante
+  try {
+    console.log('  ⚙️ Configuración de Rate Limits:');
+    console.log(`    GENERAL: max=${GENERAL_RATE_LIMIT_MAX} windowMs=${GENERAL_RATE_LIMIT_WINDOW_MS}`);
+    console.log(`    LOGIN:   max=${LOGIN_RATE_LIMIT_MAX} windowMs=${LOGIN_RATE_LIMIT_WINDOW_MS}`);
+    console.log('  ⚙️ Cache TTLs:');
+    console.log(`    SUMMARY_LOG_CACHE_TTL_MS=${process.env.SUMMARY_LOG_CACHE_TTL_MS || '2000'}`);
+    console.log(`    STATS_ACTIVE_CACHE_TTL_MS=${process.env.STATS_ACTIVE_CACHE_TTL_MS || '2000'}`);
+  } catch {}
 
   // Verificar conexión a base de datos
   try {

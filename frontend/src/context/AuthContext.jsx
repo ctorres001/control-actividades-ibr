@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 // =====================================================
 // src/context/AuthContext.jsx - Context de autenticación
 // =====================================================

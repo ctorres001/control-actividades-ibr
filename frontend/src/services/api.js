@@ -91,6 +91,9 @@ api.interceptors.response.use(
     
     // Token expirado o inválido
     if (error.response?.status === 401) {
+      // Solo mostrar "sesión expirada" si había un token previamente
+      const hadToken = !!localStorage.getItem('token');
+      
       // Limpiar almacenamiento local
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -103,10 +106,16 @@ api.interceptors.response.use(
           window.location.href = '/login';
         }
       } else {
-        window.location.href = '/login';
+        // Solo redirigir si no estamos ya en login
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
       }
 
-      toast.error('Sesión expirada. Por favor inicia sesión nuevamente.');
+      // Solo mostrar toast si realmente había una sesión activa
+      if (hadToken) {
+        toast.error('Sesión expirada. Por favor inicia sesión nuevamente.');
+      }
     }
     
     // Forbidden
