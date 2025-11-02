@@ -246,7 +246,30 @@ app.listen(PORT, async () => {
   // Verificar conexión a base de datos
   try {
     await prisma.$connect();
-    console.log('  ✅ Conectado a la base de datos Neon');
+    console.log('  ✅ Conectado a la base de datos');
+
+    // Log informativo y seguro del host de la BD (sin credenciales)
+    try {
+      const dbUrl = process.env.DATABASE_URL;
+      if (dbUrl) {
+        // Intentar parsear el host de la URL sin exponer secretos
+        let host = 'desconocido';
+        let dbName = '';
+        try {
+          const u = new URL(dbUrl);
+          host = u.hostname || host;
+          // path inicia con '/'
+          dbName = (u.pathname || '').replace(/^\//, '');
+        } catch (_) {
+          // Si no es una URL válida, intentar extraer host rudimentariamente
+          const match = dbUrl.match(/@([^\/?:]+)[/:]/);
+          if (match && match[1]) host = match[1];
+        }
+        console.log(`  🔌 BD host: ${host}${dbName ? ` db:${dbName}` : ''}`);
+      } else {
+        console.log('  🔌 BD host: (no especificado)');
+      }
+    } catch {}
   } catch (error) {
     console.error('  ❌ Error conectando a la base de datos:', error.message);
   }

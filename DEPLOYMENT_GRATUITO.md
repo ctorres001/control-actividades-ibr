@@ -131,11 +131,12 @@ git push -u origin main
 ```env
 NODE_ENV=production
 PORT=3001
-JWT_SECRET=control-actividades-jwt-secret-key-min-32-chars-2024
+JWT_SECRET=<DEFINE-UN-VALOR-SEGURO-EN-RAILWAY>
 PRISMA_CLIENT_ENGINE_TYPE=library
 
-# Tu DATABASE_URL de Neon (con connection_limit=50)
-DATABASE_URL=postgresql://neondb_owner:npg_QnZpjIvGV79J@ep-noisy-wildflower-ac16dx44-pooler.sa-east-1.aws.neon.tech/controlactividades?sslmode=require&connection_timeout=30&pool_timeout=30&connect_timeout=30&pgbouncer=true&connection_limit=50
+# Tu DATABASE_URL de PostgreSQL (usa la interna de Railway o la de tu proveedor)
+# NUNCA pegues credenciales reales en archivos del repositorio.
+DATABASE_URL=postgresql://<USER>:<PASSWORD>@<HOST>/<DB>?sslmode=require&connection_limit=50
 
 # IMPORTANTE: Agregar tu dominio de Vercel
 CORS_ORIGIN=https://TU-APP.vercel.app,http://localhost:3000
