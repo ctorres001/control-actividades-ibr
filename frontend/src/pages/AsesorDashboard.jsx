@@ -9,7 +9,7 @@ import DailySummary from '../components/DailySummary';
 import Timeline from '../components/Timeline';
 import ChartBar from '../components/ChartBar';
 import { toast } from 'react-hot-toast';
-import { getTodayLocal } from '../utils/dateUtils';
+// import { getTodayLocal } from '../utils/dateUtils';
 
 export default function AsesorDashboard() {
   const { user, logout } = useAuth();
@@ -41,15 +41,16 @@ export default function AsesorDashboard() {
   }, []);
 
   const loadSummaryAndLog = useCallback(async () => {
-    const date = getTodayLocal();
+    // No enviamos fecha desde el cliente para evitar desfases de zona horaria.
+    // El backend calculará la fecha local del servidor de forma consistente.
     try {
-      const s = await activityService.getSummary(date);
+      const s = await activityService.getSummary();
       setSummary(s || []);
     } catch (err) {
       console.warn('summary error', err?.message);
     }
     try {
-      const l = await activityService.getLog(date);
+      const l = await activityService.getLog();
       setLog(l || []);
     } catch (err) {
       console.warn('log error', err?.message);
@@ -57,9 +58,8 @@ export default function AsesorDashboard() {
   }, []);
 
   const restoreOpen = useCallback(async () => {
-    const date = getTodayLocal();
     try {
-      const res = await activityService.getOpenActivity(date);
+      const res = await activityService.getOpenActivity();
       console.log('🔍 restoreOpen response:', res);
       
       if (res && res.id) {
