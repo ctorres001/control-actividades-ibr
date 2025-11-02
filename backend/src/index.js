@@ -136,6 +136,17 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Info de versión/diagnóstico ligero
+app.get('/api/version', (req, res) => {
+  res.json({
+    success: true,
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    appTz: APP_TZ,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Test de base de datos
 app.get('/api/test-db', async (req, res) => {
   try {
