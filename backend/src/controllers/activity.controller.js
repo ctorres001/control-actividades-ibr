@@ -4,6 +4,7 @@
 // =====================================================
 
 import { prisma } from '../utils/prisma.js';
+import { getDateStrInTZ, dateStrToUtcDate } from '../utils/time.js';
 
 // Cachés en memoria con TTL corto para aliviar carga bajo alto polling
 const summaryCache = new Map(); // key: `${usuarioId}:${dateStr}` -> { ts, data }
@@ -137,10 +138,10 @@ export const startActivity = async (req, res) => {
       });
     }
 
-    // Crear nuevo registro
-    // Obtener fecha local (sin componente de hora para evitar problemas de zona horaria)
-    const now = new Date();
-    const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Crear nuevo registro
+  // Calcular fecha del día en la zona horaria de la aplicación (evita discrepancias de servidor)
+  const dateStr = getDateStrInTZ(); // YYYY-MM-DD en APP_TZ
+  const localDate = dateStrToUtcDate(dateStr); // 00:00:00Z
     
     const nuevoRegistro = await prisma.registroActividad.create({
       data: {
@@ -286,13 +287,10 @@ export const getTodaySummary = async (req, res) => {
   try {
     const usuarioId = req.user.id;
 
-    // Determinar fecha local o la provista en query (YYYY-MM-DD)
+    // Determinar fecha en APP_TZ o la provista en query (YYYY-MM-DD)
     let dateStr = req.query?.date;
     if (!dateStr) {
-      const now = new Date();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const dd = String(now.getDate()).padStart(2, '0');
-      dateStr = `${now.getFullYear()}-${mm}-${dd}`;
+      dateStr = getDateStrInTZ();
     }
 
     // Cache key
@@ -344,13 +342,10 @@ export const getTodayLog = async (req, res) => {
   try {
     const usuarioId = req.user.id;
 
-    // Determinar fecha local o la provista en query (YYYY-MM-DD)
+    // Determinar fecha en APP_TZ o la provista en query (YYYY-MM-DD)
     let dateStr = req.query?.date;
     if (!dateStr) {
-      const now = new Date();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const dd = String(now.getDate()).padStart(2, '0');
-      dateStr = `${now.getFullYear()}-${mm}-${dd}`;
+      dateStr = getDateStrInTZ();
     }
 
     // Cache key

@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { prisma } from './utils/prisma.js';
+import { APP_TZ } from './utils/time.js';
 
 // Importar rutas
 import authRoutes from './routes/auth.routes.js';
@@ -224,6 +225,7 @@ app.listen(PORT, '0.0.0.0', async () => {
   📍 URL: http://localhost:${PORT}
   🌍 Entorno: ${process.env.NODE_ENV || 'development'}
   ⏰ Timestamp: ${new Date().toISOString()}
+  🕑 Zona horaria app (APP_TZ): ${APP_TZ}
   
   📋 Endpoints disponibles:
   - GET  /api/health
