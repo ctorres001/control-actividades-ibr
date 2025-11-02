@@ -107,6 +107,24 @@ Deberías ver algo como:
 }
 ```
 
+Adicionalmente, verifica la zona horaria efectiva en la API:
+
+```
+GET /api/version
+```
+
+Respuesta esperada (ejemplo):
+
+```json
+{
+   "success": true,
+   "version": "1.0.0",
+   "environment": "production",
+   "appTz": "America/Lima",
+   "timestamp": "2025-11-02T12:34:56.000Z"
+}
+```
+
 ### Test 2: Prueba el Login desde la Terminal
 
 En la carpeta `backend`, ejecuta:
@@ -136,6 +154,7 @@ Deberías ver:
 - [ ] El backend está corriendo en http://localhost:3001
 - [ ] El frontend está corriendo en http://localhost:3000
 - [ ] Puedo acceder a http://localhost:3001/api/health y veo "status": "OK"
+- [ ] Puedo acceder a http://localhost:3001/api/version y veo `appTz: "America/Lima"`
 - [ ] He limpiado el Local Storage del navegador
 - [ ] Estoy usando las credenciales correctas (ver CREDENCIALES.md)
 - [ ] No hay errores de red en la consola del navegador (F12)
@@ -155,6 +174,13 @@ Si después de seguir estos pasos el error persiste:
 3. Comparte esa información para un diagnóstico más específico
 
 ## 🔍 Información Técnica Adicional
+
+### Problema: "Veo datos de hoy aunque no marqué"
+
+Posible causa: diferencia de zona horaria entre el servidor y los usuarios. Solución:
+- Configurar `APP_TZ=America/Lima` en el backend (Railway → Backend → Variables)
+- Redeploy. Los endpoints diarios (resumen/log) calcularán la fecha del día en esa zona horaria.
+
 
 ### Endpoint de Inicio de Actividad
 - **URL:** `POST /api/activities/start`

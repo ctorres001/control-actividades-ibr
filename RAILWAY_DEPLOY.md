@@ -81,6 +81,9 @@ RATE_LIMIT_ACTIVITY_WINDOW_MS=60000
 SUMMARY_LOG_CACHE_TTL_MS=3000
 STATS_ACTIVE_CACHE_TTL_MS=2000
 
+# Zona horaria de la aplicación (Lima/Perú)
+APP_TZ=America/Lima
+
 # Prisma
 PRISMA_CLIENT_ENGINE_TYPE=library
 
@@ -171,6 +174,13 @@ node scripts/apply_indexes.js
 ```bash
 curl https://tu-backend.railway.app/api/health
 # Debe responder: {"success":true,"status":"OK",...}
+```
+
+También puedes verificar la zona horaria efectiva de la app:
+
+```bash
+curl https://tu-backend.railway.app/api/version
+# Debe incluir: appTz: "America/Lima"
 ```
 
 ### 3. Probar login
