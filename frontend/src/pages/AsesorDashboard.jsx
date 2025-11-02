@@ -25,7 +25,9 @@ export default function AsesorDashboard() {
   const [log, setLog] = useState([]);
   const [isStarting, setIsStarting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const dayStarted = log?.some((r) => (r.nombreActividad || r.nombre_actividad) === 'Ingreso');
+  // Día iniciado: considerar tanto el log como el estado local inmediato tras iniciar "Ingreso"
+  const dayStartedFromLog = log?.some((r) => (r.nombreActividad || r.nombre_actividad) === 'Ingreso');
+  const dayStarted = dayStartedFromLog || currentActivityName === 'Ingreso' || !!currentRegistroId;
   const breakActive = currentActivityName === 'Break Salida';
 
   const loadActivities = useCallback(async () => {
@@ -168,6 +170,10 @@ export default function AsesorDashboard() {
           
           toast.success(`✅ ${activity.nombreActividad} iniciada`, { id: toastId });
           await loadSummaryAndLog(); // Esperar a que termine la recarga
+          // Protección contra caché de 2-3s en backend: si aún no refleja "Ingreso", forzar enable con estado local
+          if (activity.nombreActividad === 'Ingreso' && !dayStartedFromLog) {
+            console.log('ℹ️ dayStarted activado por estado local (caché en backend)');
+          }
         } else {
           console.error('❌ Respuesta sin ID:', res);
           toast.error('Error: respuesta inválida del servidor', { id: toastId });
