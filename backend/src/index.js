@@ -218,7 +218,7 @@ app.use((err, req, res, next) => {
 // =====================================================
 // INICIAR SERVIDOR
 // =====================================================
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`
   🚀 Servidor iniciado exitosamente
   📍 URL: http://localhost:${PORT}
