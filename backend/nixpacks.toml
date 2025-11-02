@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs_20", "openssl"]
 
 [phases.install]
-cmds = ["npm ci --only=production"]
+cmds = ["npm ci --omit=dev"]
 
 [phases.build]
 cmds = ["npx prisma generate"]
