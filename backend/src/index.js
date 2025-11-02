@@ -235,6 +235,15 @@ app.listen(PORT, async () => {
 
   // Log de configuración relevante
   try {
+    // Información de build/commit (si está disponible en Railway)
+    const gitSha = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT || '';
+    const gitBranch = process.env.RAILWAY_GIT_BRANCH || process.env.GIT_BRANCH || '';
+    if (gitSha || gitBranch) {
+      console.log('  🧾 Build:');
+      if (gitSha) console.log(`    GIT_SHA=${gitSha}`);
+      if (gitBranch) console.log(`    BRANCH=${gitBranch}`);
+    }
+
     console.log('  ⚙️ Configuración de Rate Limits:');
     console.log(`    GENERAL: max=${GENERAL_RATE_LIMIT_MAX} windowMs=${GENERAL_RATE_LIMIT_WINDOW_MS}`);
     console.log(`    LOGIN:   max=${LOGIN_RATE_LIMIT_MAX} windowMs=${LOGIN_RATE_LIMIT_WINDOW_MS}`);
