@@ -126,7 +126,24 @@ export const startActivity = async (req, res) => {
     });
 
     if (registroAbierto) {
-      const horaFin = new Date();
+      const todayStr = getDateStrInTZ(); // YYYY-MM-DD en APP_TZ
+      const registroDateStr = registroAbierto.fecha.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      let horaFin;
+      let observacionesExtra = '';
+
+      // Si el registro abierto es de un día anterior, cerrarlo a las 23:59:59 de ese día
+      if (registroDateStr < todayStr) {
+        const endOfDay = new Date(registroAbierto.fecha);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        horaFin = endOfDay;
+        observacionesExtra = ' [Cerrado automáticamente al fin del día]';
+        console.log(`⏰ Cerrando actividad del día anterior (${registroDateStr}) al iniciar nueva actividad: Usuario ${usuarioId}`);
+      } else {
+        // Si es del día actual, cerrarlo con la hora actual
+        horaFin = new Date();
+      }
+
       const duracionSeg = registroAbierto.horaInicio
         ? Math.max(0, Math.floor((horaFin - registroAbierto.horaInicio) / 1000))
         : null;
@@ -134,7 +151,14 @@ export const startActivity = async (req, res) => {
       // Actualizar sólo si sigue abierto (condición en DB) para evitar condiciones de carrera
       await prisma.registroActividad.updateMany({
         where: { id: registroAbierto.id, horaFin: null },
-        data: { horaFin, duracionSeg, estado: 'Finalizado' }
+        data: { 
+          horaFin, 
+          duracionSeg, 
+          estado: 'Finalizado',
+          observaciones: registroAbierto.observaciones
+            ? `${registroAbierto.observaciones}${observacionesExtra}`
+            : (observacionesExtra ? observacionesExtra.trim() : null)
+        }
       });
     }
 
@@ -265,6 +289,44 @@ export const getCurrentActivity = async (req, res) => {
         horaInicio: 'desc'
       }
     });
+
+    // Si hay una actividad abierta, verificar si es del día actual
+    if (actividadActual) {
+      const todayStr = getDateStrInTZ(); // YYYY-MM-DD en APP_TZ
+      const actividadDateStr = actividadActual.fecha.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      // Si la actividad es de un día anterior, cerrarla automáticamente a las 23:59:59 de ese día
+      if (actividadDateStr < todayStr) {
+        // Calcular 23:59:59 del día de la actividad
+        const endOfDay = new Date(actividadActual.fecha);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+
+        const duracionSeg = actividadActual.horaInicio
+          ? Math.max(0, Math.floor((endOfDay - actividadActual.horaInicio) / 1000))
+          : null;
+
+        // Cerrar la actividad
+        await prisma.registroActividad.updateMany({
+          where: { id: actividadActual.id, horaFin: null },
+          data: { 
+            horaFin: endOfDay, 
+            duracionSeg, 
+            estado: 'Finalizado',
+            observaciones: actividadActual.observaciones 
+              ? `${actividadActual.observaciones} [Cerrado automáticamente al fin del día]`
+              : '[Cerrado automáticamente al fin del día]'
+          }
+        });
+
+        console.log(`⏰ Actividad del día anterior cerrada automáticamente: Usuario ${usuarioId} - ID ${actividadActual.id}`);
+
+        // No devolver actividad (ya que está cerrada)
+        return res.json({
+          success: true,
+          data: null
+        });
+      }
+    }
 
     res.json({
       success: true,
