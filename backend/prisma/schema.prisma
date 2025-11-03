@@ -43,6 +43,7 @@ model Usuario {
   registros       RegistroActividad[]
   passwordResets  PasswordResetToken[]
   supervisorCampañas SupervisorCampaña[]
+  horariosLaborales HorarioLaboral[]
 
   @@index([nombreUsuario])
   @@index([correoElectronico])
@@ -134,4 +135,25 @@ model SupervisorCampaña {
   @@id([supervisorId, campañaId])
   @@index([campañaId])
   @@map("supervisor_campañas")
+}
+
+/// Configuración de horarios laborales por usuario y día de la semana
+/// diaSemana: 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado, 7=Domingo
+model HorarioLaboral {
+  id            Int      @id @default(autoincrement())
+  usuarioId     Int      @map("usuario_id")
+  diaSemana     Int      @map("dia_semana") // 1-7 (Lunes-Domingo)
+  horaInicio    String   @map("hora_inicio") @db.VarChar(5) // HH:MM formato 24h
+  horaFin       String   @map("hora_fin") @db.VarChar(5) // HH:MM formato 24h
+  horasObjetivo Decimal  @map("horas_objetivo") @db.Decimal(4, 2) // Ej: 8.00, 8.50
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, diaSemana])
+  @@index([usuarioId])
+  @@index([activo])
+  @@map("horarios_laborales")
 }

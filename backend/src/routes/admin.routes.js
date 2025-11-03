@@ -1,6 +1,7 @@
 import express from 'express';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import * as adminController from '../controllers/admin.controller.js';
+import * as exportController from '../controllers/export.controller.js';
 
 const router = express.Router();
 
@@ -50,5 +51,13 @@ router.put('/supervisors/:id/campaigns', adminController.setSupervisorCampaigns)
 // Aplicar:       POST /api/admin/maintenance/fix-fecha?apply=true
 // Si existe env ADMIN_FIX_KEY, enviar header: X-Admin-Fix-Key: <valor>
 router.post('/maintenance/fix-fecha', adminController.fixDailyDateFromStart);
+
+// ===== RUTAS DE HORARIOS LABORALES =====
+router.get('/horarios/:usuarioId', adminController.getHorariosUsuario);
+router.put('/horarios/:usuarioId', adminController.upsertHorariosUsuario);
+router.delete('/horarios/:usuarioId/:diaSemana', adminController.deleteHorarioUsuario);
+
+// ===== RUTAS DE EXPORTACIÓN =====
+router.get('/export/actividades-detalle', exportController.exportActividadesDetalle);
 
 export default router;

@@ -909,7 +909,11 @@ export {
   deleteRole,
   // Asignación campañas supervisor
   getSupervisorCampaigns,
-  setSupervisorCampaigns
+  setSupervisorCampaigns,
+  // Horarios laborales
+  getHorariosUsuario,
+  upsertHorariosUsuario,
+  deleteHorarioUsuario
 };
 
 // ===== MANTENIMIENTO =====
@@ -956,5 +960,110 @@ export const fixDailyDateFromStart = async (req, res) => {
   } catch (error) {
     console.error('Error en fixDailyDateFromStart:', error);
     res.status(500).json({ success: false, error: 'Error ejecutando fix', details: error.message });
+  }
+};
+
+// ===== HORARIOS LABORALES =====
+
+export const getHorariosUsuario = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { usuarioId } = req.params;
+
+    const horarios = await prisma.horarioLaboral.findMany({
+      where: { usuarioId: parseInt(usuarioId) },
+      orderBy: { diaSemana: 'asc' }
+    });
+
+    res.json({ success: true, data: horarios });
+  } catch (error) {
+    console.error('Error al obtener horarios:', error);
+    res.status(500).json({ success: false, error: 'Error al obtener horarios' });
+  }
+};
+
+export const upsertHorariosUsuario = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { usuarioId } = req.params;
+    const { horarios } = req.body; // Array de: { diaSemana, horaInicio, horaFin, horasObjetivo, activo }
+
+    if (!Array.isArray(horarios)) {
+      return res.status(400).json({ error: 'Se requiere un array de horarios' });
+    }
+
+    // Validar formato de horarios
+    for (const h of horarios) {
+      if (!h.diaSemana || h.diaSemana < 1 || h.diaSemana > 7) {
+        return res.status(400).json({ error: 'diaSemana debe estar entre 1 y 7' });
+      }
+      if (!h.horaInicio || !/^\d{2}:\d{2}$/.test(h.horaInicio)) {
+        return res.status(400).json({ error: 'horaInicio debe tener formato HH:MM' });
+      }
+      if (!h.horaFin || !/^\d{2}:\d{2}$/.test(h.horaFin)) {
+        return res.status(400).json({ error: 'horaFin debe tener formato HH:MM' });
+      }
+      if (h.horasObjetivo === undefined || h.horasObjetivo < 0) {
+        return res.status(400).json({ error: 'horasObjetivo debe ser >= 0' });
+      }
+    }
+
+    // Eliminar horarios existentes del usuario
+    await prisma.horarioLaboral.deleteMany({
+      where: { usuarioId: parseInt(usuarioId) }
+    });
+
+    // Crear nuevos horarios
+    if (horarios.length > 0) {
+      await prisma.horarioLaboral.createMany({
+        data: horarios.map(h => ({
+          usuarioId: parseInt(usuarioId),
+          diaSemana: h.diaSemana,
+          horaInicio: h.horaInicio,
+          horaFin: h.horaFin,
+          horasObjetivo: h.horasObjetivo,
+          activo: h.activo !== false
+        }))
+      });
+    }
+
+    // Devolver horarios actualizados
+    const nuevosHorarios = await prisma.horarioLaboral.findMany({
+      where: { usuarioId: parseInt(usuarioId) },
+      orderBy: { diaSemana: 'asc' }
+    });
+
+    res.json({ success: true, message: 'Horarios actualizados correctamente', data: nuevosHorarios });
+  } catch (error) {
+    console.error('Error al actualizar horarios:', error);
+    res.status(500).json({ success: false, error: 'Error al actualizar horarios' });
+  }
+};
+
+export const deleteHorarioUsuario = async (req, res) => {
+  try {
+    if (req.user.rol !== 'Administrador') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { usuarioId, diaSemana } = req.params;
+
+    await prisma.horarioLaboral.deleteMany({
+      where: {
+        usuarioId: parseInt(usuarioId),
+        diaSemana: parseInt(diaSemana)
+      }
+    });
+
+    res.json({ success: true, message: 'Horario eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar horario:', error);
+    res.status(500).json({ success: false, error: 'Error al eliminar horario' });
   }
 };
