@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
+import ApiHealthBanner from './components/ApiHealthBanner.jsx';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -33,6 +34,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
+          <ApiHealthBanner />
           <div className="min-h-screen bg-neutral-50">
             <Routes>
               {/* Ruta de login */}
