@@ -912,8 +912,7 @@ export {
   setSupervisorCampaigns,
   // Horarios laborales
   getHorariosUsuario,
-  upsertHorariosUsuario,
-  deleteHorarioUsuario
+  upsertHorariosUsuario
 };
 
 // ===== MANTENIMIENTO =====
