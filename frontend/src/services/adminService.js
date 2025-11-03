@@ -294,6 +294,75 @@ export const setSupervisorCampaigns = async (supervisorId, campañaIds) => {
   }
 };
 
+// =====================================================
+// HORARIOS LABORALES
+// =====================================================
+
+export const getHorariosUsuario = async (usuarioId) => {
+  try {
+    const response = await api.get(`/admin/horarios/${usuarioId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener horarios:', error);
+    throw error;
+  }
+};
+
+export const upsertHorariosUsuario = async (usuarioId, horarios) => {
+  try {
+    const response = await api.put(`/admin/horarios/${usuarioId}`, { horarios });
+    return response.data;
+  } catch (error) {
+    console.error('Error al actualizar horarios:', error);
+    throw error;
+  }
+};
+
+export const deleteHorarioUsuario = async (usuarioId, diaSemana) => {
+  try {
+    const response = await api.delete(`/admin/horarios/${usuarioId}/${diaSemana}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al eliminar horario:', error);
+    throw error;
+  }
+};
+
+// =====================================================
+// EXPORTACIÓN
+// =====================================================
+
+export const exportActividadesDetalle = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+    // Agregar formato CSV por defecto
+    params.append('formato', 'csv');
+    
+    const response = await api.get(`/admin/export/actividades-detalle?${params.toString()}`, {
+      responseType: 'blob' // Para manejar archivos
+    });
+    
+    // Crear link de descarga
+    const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `actividades_detalle_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error al exportar actividades:', error);
+    throw error;
+  }
+};
+
 export default {
   getUsuarios,
   createUsuario,
@@ -320,5 +389,9 @@ export default {
   deleteSubactividad,
   toggleSubactividadStatus,
   getSupervisorCampaigns,
-  setSupervisorCampaigns
+  setSupervisorCampaigns,
+  getHorariosUsuario,
+  upsertHorariosUsuario,
+  deleteHorarioUsuario,
+  exportActividadesDetalle
 };

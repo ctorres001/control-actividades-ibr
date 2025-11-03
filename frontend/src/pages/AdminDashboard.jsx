@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Users, Activity, Target, BarChart3, LogOut, ListTree, Shield } from 'lucide-react';
+import { Users, Activity, Target, BarChart3, LogOut, ListTree, Shield, Clock, FileSpreadsheet } from 'lucide-react';
 import StatsCard from '../components/StatsCard';
 import FilterPanel from '../components/FilterPanel';
 import ActivityChart from '../components/ActivityChart';
@@ -12,6 +12,8 @@ import ActivityManagement from '../components/ActivityManagement';
 import CampaignManagement from '../components/CampaignManagement';
 import SubactivityManagement from '../components/SubactivityManagement';
 import RoleManagement from '../components/RoleManagement';
+import HorariosManagement from '../components/HorariosManagement';
+import ExportDetailModal from '../components/ExportDetailModal';
 import statsService from '../services/statsService';
 import { calculateWorkStats, formatDuration } from '../utils/timeCalculations';
 import { getTodayLocal } from '../utils/dateUtils';
@@ -22,7 +24,10 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   
   // Tab activo
-  const [activeTab, setActiveTab] = useState('stats'); // 'stats' | 'users' | 'activities' | 'campaigns' | 'subactivities' | 'roles'
+  const [activeTab, setActiveTab] = useState('stats'); // 'stats' | 'users' | 'activities' | 'campaigns' | 'subactivities' | 'roles' | 'horarios' | 'export'
+  
+  // Estados para exportación
+  const [showExportModal, setShowExportModal] = useState(false);
   
   // Estados para estadísticas
   const [loading, setLoading] = useState(false);
@@ -120,7 +125,9 @@ export default function AdminDashboard() {
     { id: 'activities', label: 'Actividades', icon: <Activity className="w-5 h-5" /> },
     { id: 'campaigns', label: 'Campañas', icon: <Target className="w-5 h-5" /> },
     { id: 'subactivities', label: 'Subactividades', icon: <ListTree className="w-5 h-5" /> },
-    { id: 'roles', label: 'Roles', icon: <Shield className="w-5 h-5" /> }
+    { id: 'roles', label: 'Roles', icon: <Shield className="w-5 h-5" /> },
+    { id: 'horarios', label: 'Horarios', icon: <Clock className="w-5 h-5" /> },
+    { id: 'export', label: 'Exportar', icon: <FileSpreadsheet className="w-5 h-5" /> }
   ];
 
   return (
@@ -357,6 +364,42 @@ export default function AdminDashboard() {
 
   {/* Tab de Gestión de Roles */}
   {activeTab === 'roles' && <RoleManagement />}
+
+  {/* Tab de Gestión de Horarios */}
+  {activeTab === 'horarios' && <HorariosManagement />}
+
+  {/* Tab de Exportación */}
+  {activeTab === 'export' && (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <FileSpreadsheet className="w-6 h-6 text-primary-600" />
+          <h2 className="text-2xl font-bold text-neutral-800">
+            Exportar Reportes Detallados
+          </h2>
+        </div>
+      </div>
+      <div className="max-w-2xl">
+        <p className="text-neutral-600 mb-6">
+          Descarga reportes detallados con cada registro individual de actividad. 
+          Ideal para análisis estadístico, cálculo de tiempos promedio y comparación entre asesores.
+        </p>
+        <button
+          onClick={() => setShowExportModal(true)}
+          className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+        >
+          <FileSpreadsheet className="w-5 h-5" />
+          Abrir Exportador
+        </button>
+      </div>
+    </div>
+  )}
+
+  {/* Modal de Exportación */}
+  <ExportDetailModal 
+    isOpen={showExportModal} 
+    onClose={() => setShowExportModal(false)} 
+  />
       </div>
     </div>
   );
