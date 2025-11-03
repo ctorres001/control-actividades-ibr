@@ -30,6 +30,7 @@ model Usuario {
   contraseña      String    @db.VarChar(255)
   nombreCompleto  String    @map("nombre_completo") @db.VarChar(100)
   correoElectronico String? @map("correo_electronico") @db.VarChar(100)
+  documentoIdentidad String? @map("documento_identidad") @db.VarChar(20)
   estado          Boolean   @default(true)
   fechaCreacion   DateTime  @default(now()) @map("fecha_creacion") @db.Date
   
@@ -45,6 +46,7 @@ model Usuario {
 
   @@index([nombreUsuario])
   @@index([correoElectronico])
+  @@index([documentoIdentidad])
   @@index([rolId])
   @@index([campañaId])
   @@index([rolId, campañaId])

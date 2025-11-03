@@ -15,6 +15,7 @@ export default function UserManagement() {
   // Modals
   const [showUserModal, setShowUserModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showViewPasswordModal, setShowViewPasswordModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +25,7 @@ export default function UserManagement() {
     nombreUsuario: '',
     nombreCompleto: '',
     correoElectronico: '',
+    documentoIdentidad: '',
     contraseña: '',
     rolId: '',
     campañaId: '',
@@ -64,6 +66,7 @@ export default function UserManagement() {
       nombreUsuario: '',
       nombreCompleto: '',
       correoElectronico: '',
+      documentoIdentidad: '',
       contraseña: '',
       rolId: '',
       campañaId: '',
@@ -90,6 +93,7 @@ export default function UserManagement() {
       nombreUsuario: user.nombreUsuario,
       nombreCompleto: user.nombreCompleto,
       correoElectronico: user.correoElectronico || '',
+      documentoIdentidad: user.documentoIdentidad || '',
       contraseña: '', // No mostrar contraseña actual
       rolId: user.rolId,
       campañaId: user.campañaId,
@@ -187,6 +191,11 @@ export default function UserManagement() {
     }
   };
 
+  const handleOpenViewPassword = (user) => {
+    setSelectedUser(user);
+    setShowViewPasswordModal(true);
+  };
+
   const handleOpenDelete = (user) => {
     setSelectedUser(user);
     setShowDeleteDialog(true);
@@ -249,6 +258,7 @@ export default function UserManagement() {
             <thead className="bg-neutral-50 border-b border-neutral-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">Usuario</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">Documento</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">Rol</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">Campaña</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">Email</th>
@@ -259,7 +269,7 @@ export default function UserManagement() {
             <tbody className="divide-y divide-neutral-200">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-neutral-500">
+                  <td colSpan="7" className="px-6 py-12 text-center text-neutral-500">
                     <div className="flex justify-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
                     </div>
@@ -267,7 +277,7 @@ export default function UserManagement() {
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-neutral-500">
+                  <td colSpan="7" className="px-6 py-12 text-center text-neutral-500">
                     No se encontraron usuarios
                   </td>
                 </tr>
@@ -279,6 +289,9 @@ export default function UserManagement() {
                         <div className="font-medium text-neutral-900">{user.nombreCompleto}</div>
                         <div className="text-sm text-neutral-500">{user.nombreUsuario}</div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-neutral-600">
+                      {user.documentoIdentidad || '-'}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -304,6 +317,13 @@ export default function UserManagement() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleOpenViewPassword(user)}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          title="Ver información de contraseña"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleOpenPasswordChange(user)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -371,16 +391,30 @@ export default function UserManagement() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={formData.correoElectronico}
-              onChange={(e) => setFormData({ ...formData, correoElectronico: e.target.value })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.correoElectronico}
+                onChange={(e) => setFormData({ ...formData, correoElectronico: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Documento de Identidad
+              </label>
+              <input
+                type="text"
+                value={formData.documentoIdentidad}
+                onChange={(e) => setFormData({ ...formData, documentoIdentidad: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                maxLength="20"
+              />
+            </div>
           </div>
 
           {!selectedUser && (
@@ -571,6 +605,55 @@ export default function UserManagement() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal para ver información de contraseña */}
+      <Modal
+        isOpen={showViewPasswordModal}
+        onClose={() => setShowViewPasswordModal(false)}
+        title="Información de Contraseña"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <Eye className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                  Seguridad de Contraseñas
+                </h4>
+                <p className="text-sm text-blue-800">
+                  Por razones de seguridad, las contraseñas están encriptadas 
+                  con bcrypt y no pueden visualizarse en texto plano.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <p className="text-xs text-gray-600">
+              <span className="font-semibold">Usuario:</span> {selectedUser?.nombre}
+            </p>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => setShowViewPasswordModal(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Cerrar
+            </button>
+            <button
+              onClick={() => {
+                setShowViewPasswordModal(false);
+                handleOpenPasswordChange(selectedUser);
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <Key className="w-4 h-4" />
+              Cambiar Contraseña
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Delete Confirmation */}

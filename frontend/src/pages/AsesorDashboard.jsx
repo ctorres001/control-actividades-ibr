@@ -282,7 +282,7 @@ export default function AsesorDashboard() {
             <div className="flex items-center gap-3">
               <img src="/ibr-logo.png" alt="IBR" className="h-10 w-10 object-contain" />
               <div>
-                <h1 className="text-2xl font-bold text-primary-700">Panel Asesor</h1>
+                <h1 className="text-2xl font-bold text-primary-700">Control de Actividades</h1>
                 <p className="text-sm text-neutral-600 mt-1">
                   {(user?.nombreCompleto || user?.nombre_completo) || 'Usuario'}
                 </p>
