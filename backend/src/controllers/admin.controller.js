@@ -909,10 +909,7 @@ export {
   deleteRole,
   // Asignación campañas supervisor
   getSupervisorCampaigns,
-  setSupervisorCampaigns,
-  // Horarios laborales
-  getHorariosUsuario,
-  upsertHorariosUsuario
+  setSupervisorCampaigns
 };
 
 // ===== MANTENIMIENTO =====
