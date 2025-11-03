@@ -7,7 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js",
+    "start": "npm run prisma:deploy && node src/index.js",
     "start:cluster": "pm2 start ecosystem.config.cjs",
     "start:prod": "pm2 start ecosystem.config.cjs --env production",
     "stop": "pm2 stop all",
@@ -19,7 +19,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "postinstall": "prisma generate"
   },
   "keywords": [],
   "author": "",
