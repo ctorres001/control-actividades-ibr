@@ -13,10 +13,13 @@ dotenv.config();
 import { prisma } from '../src/utils/prisma.js';
 import { APP_TZ } from '../src/utils/time.js';
 
-const DRY_RUN = (process.env.DRY_RUN || 'true').toLowerCase() !== 'false' && process.env.DRY_RUN !== '0';
+// DRY_RUN por defecto true; usar flag --apply para ejecutar UPDATE
+const args = process.argv.slice(2);
+const APPLY = args.includes('--apply');
+const DRY_RUN = !APPLY && ((process.env.DRY_RUN || 'true').toLowerCase() !== 'false' && process.env.DRY_RUN !== '0');
 
 async function main() {
-  console.log(`\n🔧 Fix timezone dates - APP_TZ=${APP_TZ} DRY_RUN=${DRY_RUN}`);
+  console.log(`\n🔧 Fix timezone dates - APP_TZ=${APP_TZ} DRY_RUN=${DRY_RUN} APPLY=${APPLY}`);
 
   const previewSql = `
     SELECT COUNT(*) AS desalineados

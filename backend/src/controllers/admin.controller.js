@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma.js';
+import { APP_TZ } from '../utils/time.js';
 import bcrypt from 'bcrypt';
 
 // ===== USUARIOS =====
@@ -909,4 +910,51 @@ export {
   // Asignación campañas supervisor
   getSupervisorCampaigns,
   setSupervisorCampaigns
+};
+
+// ===== MANTENIMIENTO =====
+
+export const fixDailyDateFromStart = async (req, res) => {
+  try {
+    // Autorización: ya pasa por authenticate + requireRole('Administrador') en rutas
+
+    // Protección adicional opcional con cabecera secreta
+    const adminFixKey = process.env.ADMIN_FIX_KEY;
+    if (adminFixKey) {
+      const hdr = req.headers['x-admin-fix-key'];
+      if (!hdr || hdr !== adminFixKey) {
+        return res.status(403).json({ success: false, error: 'Clave de mantenimiento inválida' });
+      }
+    }
+
+    const tz = APP_TZ || 'America/Lima';
+    const apply = (req.query.apply === 'true');
+
+    const previewSql = `
+      SELECT COUNT(*)::int AS desalineados
+      FROM registro_actividades r
+      WHERE r.hora_inicio IS NOT NULL
+        AND r.fecha IS DISTINCT FROM CAST((r.hora_inicio AT TIME ZONE '${tz}') AS date);
+    `;
+
+    const preview = await prisma.$queryRawUnsafe(previewSql);
+    const desalineados = Array.isArray(preview) && preview.length > 0 ? preview[0].desalineados : 0;
+
+    if (!apply) {
+      return res.json({ success: true, dryRun: true, appTz: tz, desalineados });
+    }
+
+    const updateSql = `
+      UPDATE registro_actividades r
+      SET fecha = CAST((r.hora_inicio AT TIME ZONE '${tz}') AS date)
+      WHERE r.hora_inicio IS NOT NULL
+        AND r.fecha IS DISTINCT FROM CAST((r.hora_inicio AT TIME ZONE '${tz}') AS date);
+    `;
+    const updated = await prisma.$executeRawUnsafe(updateSql);
+
+    return res.json({ success: true, dryRun: false, appTz: tz, updated });
+  } catch (error) {
+    console.error('Error en fixDailyDateFromStart:', error);
+    res.status(500).json({ success: false, error: 'Error ejecutando fix', details: error.message });
+  }
 };

@@ -45,4 +45,10 @@ router.delete('/roles/:id', adminController.deleteRole);
 router.get('/supervisors/:id/campaigns', adminController.getSupervisorCampaigns);
 router.put('/supervisors/:id/campaigns', adminController.setSupervisorCampaigns);
 
+// ===== RUTAS DE MANTENIMIENTO (ADMIN) =====
+// Vista previa:  POST /api/admin/maintenance/fix-fecha
+// Aplicar:       POST /api/admin/maintenance/fix-fecha?apply=true
+// Si existe env ADMIN_FIX_KEY, enviar header: X-Admin-Fix-Key: <valor>
+router.post('/maintenance/fix-fecha', adminController.fixDailyDateFromStart);
+
 export default router;
