@@ -122,7 +122,7 @@ export default function AdminDashboard() {
   const tabs = [
     { id: 'stats', label: 'Estadísticas', icon: <BarChart3 className="w-5 h-5" /> },
     { id: 'users', label: 'Usuarios', icon: <Users className="w-5 h-5" /> },
-    { id: 'activities', label: 'Actividades', icon: <Activity className="w-5 h-5" /> },
+    // { id: 'activities', label: 'Actividades', icon: <Activity className="w-5 h-5" /> }, // ⚠️ OCULTO: No modificar para evitar afectar la app
     { id: 'campaigns', label: 'Campañas', icon: <Target className="w-5 h-5" /> },
     { id: 'subactivities', label: 'Subactividades', icon: <ListTree className="w-5 h-5" /> },
     { id: 'roles', label: 'Roles', icon: <Shield className="w-5 h-5" /> },
@@ -354,7 +354,8 @@ export default function AdminDashboard() {
         {activeTab === 'users' && <UserManagement />}
 
         {/* Tab de Gestión de Actividades */}
-        {activeTab === 'activities' && <ActivityManagement />}
+        {/* ⚠️ OCULTO: No modificar actividades para evitar afectar la aplicación */}
+        {/* {activeTab === 'activities' && <ActivityManagement />} */}
 
         {/* Tab de Gestión de Campañas */}
         {activeTab === 'campaigns' && <CampaignManagement />}

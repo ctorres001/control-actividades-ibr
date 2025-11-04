@@ -18,14 +18,16 @@ export default function ActivityGrid({ activities = [], currentActivityId, onSta
     Incidencia: '⚠️',
     Salida: '🚪',
     Pausa: '⏸️',
-    'Caso Nuevo': '📋'
+    'Caso Nuevo': '📋',
+    'Revisión': '🔍',
+    'Gestión': '📁'
   };
 
   // Grupo 1: Botones de actividad (control de jornada)
   const activityButtons = ['Ingreso', 'Break Salida', 'Regreso Break', 'Salida'];
   
   // Grupo 2: Botones de jornada (trabajo operativo)
-  const workButtons = ['Seguimiento', 'Bandeja de Correo', 'Reportes', 'Auxiliares', 'Reunión', 'Incidencia', 'Pausa', 'Caso Nuevo'];
+  const workButtons = ['Seguimiento', 'Bandeja de Correo', 'Reportes', 'Auxiliares', 'Reunión', 'Incidencia', 'Pausa', 'Caso Nuevo', 'Revisión', 'Gestión'];
 
   const grupo1 = activities.filter(a => activityButtons.includes(a.nombreActividad));
   const grupo2 = activities.filter(a => workButtons.includes(a.nombreActividad));

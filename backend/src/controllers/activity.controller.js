@@ -101,6 +101,45 @@ export const startActivity = async (req, res) => {
       });
     }
 
+    // 🔒 PROTECCIÓN CRÍTICA: Verificar si ya se marcó "Salida" hoy
+    const dateStr = getDateStrInTZ(); // YYYY-MM-DD en APP_TZ
+    const localDate = dateStrToUtcDate(dateStr);
+    
+    const salidaHoy = await prisma.registroActividad.findFirst({
+      where: {
+        usuarioId,
+        fecha: localDate,
+        actividad: { nombreActividad: 'Salida' }
+      }
+    });
+
+    if (salidaHoy && actividad.nombreActividad !== 'Salida') {
+      return res.status(400).json({
+        success: false,
+        error: 'La jornada ya ha finalizado. No se pueden registrar más actividades después de marcar Salida.',
+        code: 'JORNADA_FINALIZADA'
+      });
+    }
+
+    // 🔒 PROTECCIÓN: Evitar múltiples ingresos en el mismo día
+    if (actividad.nombreActividad === 'Ingreso') {
+      const ingresoExistente = await prisma.registroActividad.findFirst({
+        where: {
+          usuarioId,
+          fecha: localDate,
+          actividadId: actividad.id
+        }
+      });
+      
+      if (ingresoExistente) {
+        return res.status(400).json({
+          success: false,
+          error: 'Ya has marcado tu ingreso hoy. Solo se permite un ingreso por día.',
+          code: 'INGRESO_DUPLICADO'
+        });
+      }
+    }
+
     // Validar subactividad si se proporciona
     if (subactividadId) {
       const subactividad = await prisma.subactividad.findFirst({
@@ -163,9 +202,7 @@ export const startActivity = async (req, res) => {
     }
 
   // Crear nuevo registro
-  // Calcular fecha del día en la zona horaria de la aplicación (evita discrepancias de servidor)
-  const dateStr = getDateStrInTZ(); // YYYY-MM-DD en APP_TZ
-  const localDate = dateStrToUtcDate(dateStr); // 00:00:00Z
+  // Fecha ya calculada arriba para reutilizar en validaciones
     
     const nuevoRegistro = await prisma.registroActividad.create({
       data: {

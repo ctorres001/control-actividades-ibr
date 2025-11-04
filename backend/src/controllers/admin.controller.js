@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { APP_TZ } from '../utils/time.js';
 import bcrypt from 'bcrypt';
+import { validatePassword, getPasswordRequirements } from '../utils/passwordValidator.js';
 
 // ===== USUARIOS =====
 
@@ -53,11 +54,13 @@ const createUser = async (req, res) => {
       return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
 
-    // Validar formato de contraseña
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(contraseña)) {
-      return res.status(400).json({ 
-        error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial'
+    // 🔒 Validar complejidad de contraseña con validador robusto
+    const passwordValidation = validatePassword(contraseña);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: passwordValidation.error,
+        requirements: getPasswordRequirements()
       });
     }
 
@@ -94,9 +97,11 @@ const createUser = async (req, res) => {
       }
     });
 
+    console.log(`✅ Usuario creado: ${nuevoUsuario.nombreUsuario} por admin ${req.user.id}`);
+
     res.status(201).json(nuevoUsuario);
   } catch (error) {
-    console.error('Error al crear usuario:', error);
+    console.error('❌ Error al crear usuario:', error);
     res.status(500).json({ error: 'Error al crear usuario' });
   }
 };
@@ -132,10 +137,13 @@ const updateUser = async (req, res) => {
 
     // Si se proporciona contraseña, validarla y hashearla
     if (contraseña && contraseña.trim() !== '') {
-      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-      if (!passwordRegex.test(contraseña)) {
-        return res.status(400).json({ 
-          error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial'
+      // 🔒 Validar complejidad de contraseña
+      const passwordValidation = validatePassword(contraseña);
+      if (!passwordValidation.valid) {
+        return res.status(400).json({
+          success: false,
+          error: passwordValidation.error,
+          requirements: getPasswordRequirements()
         });
       }
       updateData.contraseña = await bcrypt.hash(contraseña, 10);
@@ -334,6 +342,27 @@ const updateActivity = async (req, res) => {
       return res.status(404).json({ error: 'Actividad no encontrada' });
     }
 
+    // 🔒 PROTECCIÓN: Actividades críticas solo pueden modificarse parcialmente
+    const ACTIVIDADES_PROTEGIDAS = ['Ingreso', 'Salida', 'Break Salida', 'Regreso Break'];
+    if (ACTIVIDADES_PROTEGIDAS.includes(existingActivity.nombreActividad)) {
+      // Permitir solo modificar descripción y estado activo, NO el nombre ni orden
+      if (nombreActividad && nombreActividad !== existingActivity.nombreActividad) {
+        return res.status(403).json({
+          success: false,
+          error: `La actividad "${existingActivity.nombreActividad}" es crítica y no se puede renombrar.`,
+          suggestion: 'Solo puedes modificar su descripción o estado activo.'
+        });
+      }
+      
+      if (orden !== undefined && orden !== existingActivity.orden) {
+        return res.status(403).json({
+          success: false,
+          error: `El orden de "${existingActivity.nombreActividad}" no puede modificarse para mantener la consistencia del sistema.`,
+          suggestion: 'Solo puedes modificar su descripción o estado activo.'
+        });
+      }
+    }
+
     // Si se cambia el nombre, verificar que no exista otra con ese nombre
     if (nombreActividad && nombreActividad !== existingActivity.nombreActividad) {
       const duplicateActivity = await prisma.actividad.findUnique({
@@ -381,26 +410,47 @@ const deleteActivity = async (req, res) => {
       return res.status(404).json({ error: 'Actividad no encontrada' });
     }
 
-    // Verificar si tiene registros asociados
-    const registrosCount = await prisma.registro.count({
+    // 🔒 PROTECCIÓN: Actividades críticas del sistema no pueden eliminarse
+    const ACTIVIDADES_PROTEGIDAS = ['Ingreso', 'Salida', 'Break Salida', 'Regreso Break'];
+    if (ACTIVIDADES_PROTEGIDAS.includes(existingActivity.nombreActividad)) {
+      return res.status(403).json({
+        success: false,
+        error: `La actividad "${existingActivity.nombreActividad}" es crítica para el sistema y no puede ser eliminada.`,
+        suggestion: 'Desactívala usando el toggle de estado si deseas ocultarla.'
+      });
+    }
+
+    // 🔒 PROTECCIÓN: Verificar si tiene registros asociados (corregido nombre de tabla)
+    const registrosCount = await prisma.registroActividad.count({
       where: { actividadId: parseInt(id) }
     });
 
     if (registrosCount > 0) {
-      return res.status(400).json({ 
-        error: `No se puede eliminar la actividad porque tiene ${registrosCount} registros asociados` 
+      return res.status(400).json({
+        success: false,
+        error: `No se puede eliminar: la actividad tiene ${registrosCount} registros históricos asociados.`,
+        suggestion: 'Desactívala usando el toggle de estado para ocultarla sin perder datos históricos.',
+        registrosCount
       });
     }
 
-    // Eliminar actividad (cascade eliminará subactividades)
+    // Si no tiene registros y no es crítica, permitir eliminación
     await prisma.actividad.delete({
       where: { id: parseInt(id) }
     });
 
-    res.json({ message: 'Actividad eliminada exitosamente' });
+    console.log(`✅ Actividad "${existingActivity.nombreActividad}" eliminada por admin ${req.user.id}`);
+
+    res.json({
+      success: true,
+      message: 'Actividad eliminada exitosamente'
+    });
   } catch (error) {
-    console.error('Error al eliminar actividad:', error);
-    res.status(500).json({ error: 'Error al eliminar actividad' });
+    console.error('❌ Error al eliminar actividad:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al eliminar actividad'
+    });
   }
 };
 

@@ -96,17 +96,24 @@ export const getStats = async (req, res) => {
         const campañaIds = asignaciones.map(a => a.campañaId);
         if (campañaIds.length > 0) {
           where.usuario = { ...(where.usuario || {}), is: { campañaId: { in: campañaIds } } };
+          console.log(`✅ Supervisor ${req.user.id} (${req.user.nombreCompleto}) - Campañas asignadas: ${campañaIds.length}`);
         } else if (req.user.campañaId) {
           // Fallback: modelo antiguo, una sola campaña
+          console.warn(`⚠️ Supervisor ${req.user.id} (${req.user.nombreCompleto}) sin asignaciones M:N - usando campaña única: ${req.user.campañaId}`);
           where.usuario = { ...(where.usuario || {}), is: { campañaId: req.user.campañaId } };
         } else {
           // Sin campañas asignadas → no ver nada
+          console.warn(`⚠️ Supervisor ${req.user.id} (${req.user.nombreCompleto}) sin campañas asignadas - acceso restringido`);
           where.usuario = { ...(where.usuario || {}), is: { id: -1 } };
         }
-      } catch (_) {
+      } catch (error) {
         // Fallback si aún no existe la tabla m:n
+        console.warn(`⚠️ Error al obtener asignaciones M:N para supervisor ${req.user.id}: ${error.message} - usando fallback`);
         if (req.user.campañaId) {
           where.usuario = { ...(where.usuario || {}), is: { campañaId: req.user.campañaId } };
+        } else {
+          console.error(`❌ Supervisor ${req.user.id} sin campañaId en fallback - sin acceso a datos`);
+          where.usuario = { ...(where.usuario || {}), is: { id: -1 } };
         }
       }
     }

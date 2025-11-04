@@ -346,6 +346,26 @@ async function main() {
         orden: 99,
         activo: true
       }
+    }),
+    prisma.actividad.upsert({
+      where: { nombreActividad: 'Revisión' },
+      update: {},
+      create: {
+        nombreActividad: 'Revisión',
+        descripcion: 'Revisión de casos o documentos',
+        orden: 7,
+        activo: true
+      }
+    }),
+    prisma.actividad.upsert({
+      where: { nombreActividad: 'Gestión' },
+      update: {},
+      create: {
+        nombreActividad: 'Gestión',
+        descripcion: 'Tareas de gestión administrativa',
+        orden: 8,
+        activo: true
+      }
     })
   ]);
 
