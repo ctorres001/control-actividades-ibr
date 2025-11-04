@@ -379,7 +379,17 @@ export default function AsesorDashboard() {
       </div>
 
       {showModal && pendingActivity ? (
-        <SubactivityModal activity={pendingActivity} loadSubactivities={(id)=>activityService.getSubactivities(id).then(r=>r.data||r)} onCancel={()=>setShowModal(false)} onConfirm={handleConfirmModal} />
+        <SubactivityModal 
+          activity={pendingActivity} 
+          loadSubactivities={(id)=>activityService.getSubactivities(id).then(r=>r.data||r)} 
+          onCancel={() => {
+            setShowModal(false);
+            setPendingActivity(null);
+            setIsStarting(false); // ⚡ FIX: Resetear isStarting al cancelar
+            toast.dismiss('starting-activity');
+          }} 
+          onConfirm={handleConfirmModal} 
+        />
       ) : null}
     </div>
   );
