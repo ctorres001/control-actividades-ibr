@@ -6,7 +6,9 @@ export default defineConfig({
   
   // Configuración del servidor de desarrollo
   server: {
+    host: '127.0.0.1',  // Solo localhost para mayor seguridad (mitiga CVE esbuild)
     port: 3000,
+    strictPort: true,    // Fallar si el puerto está ocupado
     proxy: {
       '/api': {
         // Use 127.0.0.1 to avoid IPv6/hostname resolution issues (ECONNREFUSED)
