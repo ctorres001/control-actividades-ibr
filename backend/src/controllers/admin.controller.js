@@ -551,12 +551,26 @@ const createSubactivity = async (req, res) => {
       return res.status(400).json({ error: 'Ya existe una subactividad con ese nombre en la actividad seleccionada' });
     }
 
+    // 🔄 Si no se proporciona orden, calcularlo automáticamente
+    let ordenFinal = orden !== undefined ? parseInt(orden) : null;
+    
+    if (ordenFinal === null || ordenFinal === 0) {
+      // Obtener el máximo orden actual para esta actividad
+      const maxOrden = await prisma.subactividad.aggregate({
+        where: { actividadId: parseInt(actividadId) },
+        _max: { orden: true }
+      });
+      
+      ordenFinal = (maxOrden._max.orden || 0) + 1;
+      console.log(`✨ Orden calculado automáticamente: ${ordenFinal} para actividad ${actividadId}`);
+    }
+
     const nueva = await prisma.subactividad.create({
       data: {
         actividadId: parseInt(actividadId),
         nombreSubactividad,
         descripcion: descripcion || '',
-        orden: orden !== undefined ? parseInt(orden) : 0,
+        orden: ordenFinal,
         activo: activo !== false
       }
     });

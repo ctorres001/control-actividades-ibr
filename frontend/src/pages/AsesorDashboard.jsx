@@ -140,7 +140,7 @@ export default function AsesorDashboard() {
       }
 
       // Si necesita detalles (subactividad), abrir modal
-      const activitiesWithDetails = ['Seguimiento','Bandeja de Correo','Reportes','Auxiliares'];
+      const activitiesWithDetails = ['Seguimiento','Bandeja de Correo','Reportes','Auxiliares','Revisión','Gestión'];
       if (activitiesWithDetails.includes(activity.nombreActividad)) {
         toast.dismiss(toastId);
         setPendingActivity(activity);

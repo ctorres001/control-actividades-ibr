@@ -196,15 +196,9 @@ export default function SubactivityManagement() {
             <label className="block text-sm font-medium text-neutral-700 mb-1">Descripción</label>
             <textarea value={form.descripcion} onChange={(e)=>setForm({...form, descripcion: e.target.value})} className="w-full border border-neutral-300 rounded-lg px-3 py-2 h-24 focus:ring-primary-500 focus:border-primary-500" placeholder="Opcional"/>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Orden</label>
-              <input type="number" value={form.orden} onChange={(e)=>setForm({...form, orden: e.target.value})} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
-            </div>
-            <div className="flex items-center gap-2 mt-6">
-              <input id="activo" type="checkbox" checked={form.activo} onChange={(e)=>setForm({...form, activo: e.target.checked})} className="rounded text-primary-600"/>
-              <label htmlFor="activo" className="text-sm text-neutral-700">Activo</label>
-            </div>
+          <div className="flex items-center gap-2">
+            <input id="activo" type="checkbox" checked={form.activo} onChange={(e)=>setForm({...form, activo: e.target.checked})} className="rounded text-primary-600"/>
+            <label htmlFor="activo" className="text-sm text-neutral-700">Activo</label>
           </div>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={()=>setShowModal(false)} className="px-4 py-2 bg-neutral-100 text-neutral-700 rounded-lg">Cancelar</button>
