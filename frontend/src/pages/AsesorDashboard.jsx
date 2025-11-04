@@ -139,13 +139,30 @@ export default function AsesorDashboard() {
         return;
       }
 
-      // Si necesita detalles (subactividad), abrir modal
-      const activitiesWithDetails = ['Seguimiento','Bandeja de Correo','Reportes','Auxiliares','Revisión','Gestión'];
-      if (activitiesWithDetails.includes(activity.nombreActividad)) {
-        toast.dismiss(toastId);
-        setPendingActivity(activity);
-        setShowModal(true);
-        return; // No resetear isStarting aquí, se hace al cerrar/confirmar modal
+      // 🔄 NUEVO: Intentar cargar subactividades para TODOS los botones de jornada
+      // Solo mostrar modal si hay subactividades disponibles
+      const workButtons = ['Seguimiento', 'Bandeja de Correo', 'Reportes', 'Auxiliares', 'Revisión', 'Gestión', 'Reunión', 'Incidencia', 'Pausa', 'Caso Nuevo'];
+      
+      if (workButtons.includes(activity.nombreActividad)) {
+        try {
+          // Intentar cargar subactividades
+          const subactividades = await activityService.getSubactivities(activity.id);
+          const hasSubactivities = subactividades && subactividades.data && subactividades.data.length > 0;
+          
+          if (hasSubactivities) {
+            // Hay subactividades, abrir modal
+            toast.dismiss(toastId);
+            setPendingActivity(activity);
+            setShowModal(true);
+            return; // No resetear isStarting aquí, se hace al cerrar/confirmar modal
+          }
+          
+          // No hay subactividades, continuar con inicio normal (sin modal)
+          console.log(`ℹ️ ${activity.nombreActividad} sin subactividades, iniciando directamente`);
+        } catch (err) {
+          console.warn(`⚠️ Error verificando subactividades para ${activity.nombreActividad}:`, err);
+          // En caso de error, continuar sin modal
+        }
       }
 
       // Iniciar actividad normal
