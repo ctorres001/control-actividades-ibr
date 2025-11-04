@@ -29,6 +29,9 @@ export default function AsesorDashboard() {
   const dayStartedFromLog = log?.some((r) => (r.nombreActividad || r.nombre_actividad) === 'Ingreso');
   const dayStarted = dayStartedFromLog || currentActivityName === 'Ingreso' || !!currentRegistroId;
   const breakActive = currentActivityName === 'Break Salida';
+  // Verificar si ya se marcó salida (desde el log o estado local)
+  const hasSalidaInLog = log?.some((r) => (r.nombreActividad || r.nombre_actividad) === 'Salida');
+  const jornalFinished = currentActivityName === 'Jornada Finalizada' || hasSalidaInLog;
 
   const loadActivities = useCallback(async () => {
     try {
@@ -98,7 +101,7 @@ export default function AsesorDashboard() {
 
   const handleStartClick = async (activity) => {
     // Si la jornada ya finalizó, no permitir iniciar más actividades
-    if (currentActivityName === 'Jornada Finalizada') {
+    if (jornalFinished) {
       toast.error('La jornada ya ha finalizado', { id: 'jornada-finalizada' });
       return;
     }
@@ -310,7 +313,7 @@ export default function AsesorDashboard() {
               activities={activities} 
               currentActivityId={currentActivityId} 
               onStart={handleStartClick}
-              jornalFinished={currentActivityName === 'Jornada Finalizada'}
+              jornalFinished={jornalFinished}
               disabled={isStarting}
               dayStarted={!!dayStarted}
               breakActive={!!breakActive}
@@ -328,7 +331,7 @@ export default function AsesorDashboard() {
         <div>
           <div className="mb-4">
             <h3 className="font-semibold mb-2">Estado actual</h3>
-            {currentActivityName === 'Jornada Finalizada' ? (
+            {jornalFinished ? (
               <div className="p-4 bg-neutral-100 rounded-lg text-center">
                 <div className="text-lg font-semibold text-neutral-700">✅ Jornada Finalizada</div>
                 <div className="text-sm text-neutral-500 mt-1">Has marcado tu salida</div>
