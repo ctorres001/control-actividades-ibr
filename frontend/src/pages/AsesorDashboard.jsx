@@ -166,7 +166,10 @@ export default function AsesorDashboard() {
         try {
           // Intentar cargar subactividades
           const subactividades = await activityService.getSubactivities(activity.id);
-          const hasSubactivities = subactividades && subactividades.data && subactividades.data.length > 0;
+          console.log(`🔍 Subactividades para ${activity.nombreActividad}:`, subactividades);
+          
+          // El servicio ya retorna data.data, así que subactividades es el array directamente
+          const hasSubactivities = Array.isArray(subactividades) && subactividades.length > 0;
           
           if (hasSubactivities) {
             // Hay subactividades, abrir modal
@@ -405,7 +408,7 @@ export default function AsesorDashboard() {
       {showModal && pendingActivity ? (
         <SubactivityModal 
           activity={pendingActivity} 
-          loadSubactivities={(id)=>activityService.getSubactivities(id).then(r=>r.data||r)} 
+          loadSubactivities={(id) => activityService.getSubactivities(id)} 
           onCancel={() => {
             setShowModal(false);
             setPendingActivity(null);
