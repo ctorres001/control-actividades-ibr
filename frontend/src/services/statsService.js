@@ -6,7 +6,6 @@ import {
   groupByUser,
   groupByCampaign,
   formatDuration,
-  formatDate,
   formatTime
 } from '../utils/timeCalculations';
 
@@ -139,19 +138,50 @@ export function exportToExcel(registros, filename = 'estadisticas', options = {}
       const end = registro.fechaFin ? new Date(registro.fechaFin) : new Date();
       const duration = (end - start) / 1000;
 
+      // Convertir duración a formato Excel (días decimales)
+      const durationDays = duration / 86400; // Excel usa días como unidad base
+
       detailData.push({
-        'Fecha': formatDate(registro.fechaInicio),
+        'Fecha': start, // Mantener como objeto Date para aplicar formato
         'Usuario': registro.usuario?.nombreCompleto || '-',
         'Campaña': registro.usuario?.campaña?.nombre || '-',
         'Actividad': registro.nombreActividad || '-',
-        'Hora Inicio': formatTime(registro.fechaInicio),
-        'Hora Fin': registro.fechaFin ? formatTime(registro.fechaFin) : 'En curso',
-        'Duración': formatDuration(duration),
+        'Hora Inicio': start, // Mantener como Date
+        'Hora Fin': registro.fechaFin ? end : 'En curso',
+        'Duración': durationDays, // En días para Excel
         'Es Trabajo': registro.nombreActividad && !['Ingreso', 'Salida', 'Break Salida', 'Break Regreso'].includes(registro.nombreActividad) ? 'Sí' : 'No'
       });
     }
 
-    const detailSheet = XLSX.utils.json_to_sheet(detailData);
+    const detailSheet = XLSX.utils.json_to_sheet(detailData, { cellDates: true });
+    
+    // Aplicar formatos a las columnas
+    const range = XLSX.utils.decode_range(detailSheet['!ref']);
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+      // Columna A (Fecha) - formato de fecha
+      const cellRefFecha = XLSX.utils.encode_cell({ r: R, c: 0 });
+      if (detailSheet[cellRefFecha]) {
+        detailSheet[cellRefFecha].z = 'dd/mm/yyyy';
+      }
+
+      // Columna E (Hora Inicio) - formato de hora
+      const cellRefInicio = XLSX.utils.encode_cell({ r: R, c: 4 });
+      if (detailSheet[cellRefInicio] && typeof detailSheet[cellRefInicio].v !== 'string') {
+        detailSheet[cellRefInicio].z = 'hh:mm:ss AM/PM';
+      }
+
+      // Columna F (Hora Fin) - formato de hora
+      const cellRefFin = XLSX.utils.encode_cell({ r: R, c: 5 });
+      if (detailSheet[cellRefFin] && typeof detailSheet[cellRefFin].v !== 'string') {
+        detailSheet[cellRefFin].z = 'hh:mm:ss AM/PM';
+      }
+
+      // Columna G (Duración) - formato de tiempo HH:MM:SS
+      const cellRefDur = XLSX.utils.encode_cell({ r: R, c: 6 });
+      if (detailSheet[cellRefDur] && typeof detailSheet[cellRefDur].v === 'number') {
+        detailSheet[cellRefDur].z = '[hh]:mm:ss'; // [hh] permite horas > 24
+      }
+    }
     
     // Ajustar ancho de columnas
     detailSheet['!cols'] = [
@@ -159,8 +189,8 @@ export function exportToExcel(registros, filename = 'estadisticas', options = {}
       { wch: 25 }, // Usuario
       { wch: 20 }, // Campaña
       { wch: 20 }, // Actividad
-      { wch: 12 }, // Hora Inicio
-      { wch: 12 }, // Hora Fin
+      { wch: 15 }, // Hora Inicio
+      { wch: 15 }, // Hora Fin
       { wch: 12 }, // Duración
       { wch: 10 }  // Es Trabajo
     ];

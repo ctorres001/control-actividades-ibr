@@ -144,19 +144,35 @@ export function calculateWorkStats(registros) {
 }
 
 /**
- * Agrupa registros por día
+ * Agrupa registros por fecha
  * @param {Array} registros - Array de registros
- * @returns {Object} Objeto con fecha como key y registros como value
+ * @returns {Object} Objeto con fecha (YYYY-MM-DD) como key y array de registros como value
  */
 export function groupByDate(registros) {
   const grouped = {};
   
   for (const registro of registros) {
-    const date = new Date(registro.fechaInicio).toISOString().split('T')[0];
-    if (!grouped[date]) {
-      grouped[date] = [];
+    // Preferir usar registro.fecha si existe (ya ajustada por zona horaria en backend)
+    // Si no existe, calcular la fecha local desde fechaInicio
+    let dateKey;
+    if (registro.fecha) {
+      // Si fecha viene como string ISO o Date, extraer solo la parte de fecha
+      dateKey = typeof registro.fecha === 'string' 
+        ? registro.fecha.split('T')[0] 
+        : new Date(registro.fecha).toISOString().split('T')[0];
+    } else {
+      // Fallback: usar fecha local del timestamp fechaInicio
+      const d = new Date(registro.fechaInicio);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      dateKey = `${year}-${month}-${day}`;
     }
-    grouped[date].push(registro);
+    
+    if (!grouped[dateKey]) {
+      grouped[dateKey] = [];
+    }
+    grouped[dateKey].push(registro);
   }
   
   return grouped;
