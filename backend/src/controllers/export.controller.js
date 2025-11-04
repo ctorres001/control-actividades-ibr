@@ -15,6 +15,22 @@ export const exportActividadesDetalle = async (req, res) => {
 
     const { usuarioId, campañaId, fechaInicio, fechaFin, formato } = req.query;
 
+    // Validar tipos de datos
+    if (usuarioId && (isNaN(parseInt(usuarioId)) || parseInt(usuarioId) <= 0)) {
+      return res.status(400).json({ error: 'usuarioId inválido' });
+    }
+    if (campañaId && (isNaN(parseInt(campañaId)) || parseInt(campañaId) <= 0)) {
+      return res.status(400).json({ error: 'campañaId inválido' });
+    }
+
+    // Validar fechas
+    if (fechaInicio && isNaN(Date.parse(fechaInicio))) {
+      return res.status(400).json({ error: 'fechaInicio inválida' });
+    }
+    if (fechaFin && isNaN(Date.parse(fechaFin))) {
+      return res.status(400).json({ error: 'fechaFin inválida' });
+    }
+
     // Construir filtros
     const where = {};
     if (usuarioId) where.usuarioId = parseInt(usuarioId);

@@ -91,9 +91,8 @@ export const requireRole = (...allowedRoles) => {
     if (!allowedRoles.includes(req.user.rol)) {
       return res.status(403).json({
         success: false,
-        error: 'No tienes permisos para esta acción',
-        requiredRoles: allowedRoles,
-        userRole: req.user.rol
+        error: 'No tienes permisos para esta acción'
+        // No exponer requiredRoles ni userRole en producción
       });
     }
 

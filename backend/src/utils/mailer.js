@@ -50,7 +50,7 @@ const createTransporter = () => {
 async function sendPasswordResetEmail({ to, username, fullName, tempPassword }) {
   const transporter = createTransporter();
   
-  // Si no hay transportador configurado, solo registrar en consola
+  // Si no hay transportador configurado, solo registrar en consola (SIN mostrar la contraseña)
   if (!transporter) {
     console.log('\n📧 ============================================');
     console.log('📧 CORREO NO ENVIADO (Configuración pendiente)');
@@ -58,7 +58,7 @@ async function sendPasswordResetEmail({ to, username, fullName, tempPassword }) 
     console.log(`📧 Para: ${to}`);
     console.log(`📧 Usuario: ${username}`);
     console.log(`📧 Nombre: ${fullName}`);
-    console.log(`📧 Contraseña Temporal: ${tempPassword}`);
+    console.log(`📧 Contraseña Temporal: ******** (oculta por seguridad)`);
     console.log('📧 ============================================\n');
     
     return {
