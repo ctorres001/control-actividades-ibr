@@ -86,7 +86,7 @@ export const getSubactivities = async (req, res) => {
 // =====================================================
 export const startActivity = async (req, res) => {
   try {
-    const { actividadId, subactividadId, observaciones } = req.body;
+    const { actividadId, subactividadId, observaciones, idClienteReferencia, resumenBreve } = req.body;
     const usuarioId = req.user.id;
 
     // Validar que la actividad existe y está activa
@@ -210,6 +210,8 @@ export const startActivity = async (req, res) => {
         actividadId,
         subactividadId: subactividadId || null,
         observaciones: observaciones || null,
+        idClienteReferencia: idClienteReferencia || null,
+        resumenBreve: resumenBreve || null,
         fecha: localDate,
         horaInicio: new Date(),
         estado: 'Iniciado'
@@ -270,6 +272,16 @@ export const stopActivity = async (req, res) => {
 
     // Actualizar con hora de fin y calcular duración
     const horaFin = new Date();
+    
+    // 🔒 VALIDACIÓN: Asegurar que horaFin > horaInicio
+    if (horaFin <= registroActual.horaInicio) {
+      return res.status(400).json({
+        success: false,
+        error: 'La hora de fin debe ser mayor que la hora de inicio. Verifique la hora del sistema.',
+        code: 'INVALID_TIME_RANGE'
+      });
+    }
+    
     const duracionSeg = Math.floor((horaFin - registroActual.horaInicio) / 1000);
 
     // Proteger contra condiciones de carrera: actualizar sólo si sigue abierto

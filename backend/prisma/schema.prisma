@@ -84,20 +84,22 @@ model Subactividad {
 }
 
 model RegistroActividad {
-  id             Int           @id @default(autoincrement())
-  usuarioId      Int           @map("usuario_id")
-  actividadId    Int           @map("actividad_id")
-  subactividadId Int?          @map("subactividad_id")
-  fecha          DateTime      @db.Date
-  horaInicio     DateTime?     @map("hora_inicio") @db.Timestamp(6)
-  horaFin        DateTime?     @map("hora_fin") @db.Timestamp(6)
-  duracionSeg    Int?          @map("duracion_seg")
-  duracionHms    String?       @map("duracion_hms")
-  estado         String?       @db.VarChar(50)
-  observaciones  String?
-  actividad      Actividad     @relation(fields: [actividadId], references: [id])
-  subactividad   Subactividad? @relation(fields: [subactividadId], references: [id])
-  usuario        Usuario       @relation(fields: [usuarioId], references: [id])
+  id                   Int           @id @default(autoincrement())
+  usuarioId            Int           @map("usuario_id")
+  actividadId          Int           @map("actividad_id")
+  subactividadId       Int?          @map("subactividad_id")
+  fecha                DateTime      @db.Date
+  horaInicio           DateTime?     @map("hora_inicio") @db.Timestamp(6)
+  horaFin              DateTime?     @map("hora_fin") @db.Timestamp(6)
+  duracionSeg          Int?          @map("duracion_seg")
+  duracionHms          String?       @map("duracion_hms")
+  estado               String?       @db.VarChar(50)
+  observaciones        String?
+  idClienteReferencia  String?       @map("id_cliente_referencia") @db.VarChar(100)
+  resumenBreve         String?       @map("resumen_breve") @db.Text
+  actividad            Actividad     @relation(fields: [actividadId], references: [id])
+  subactividad         Subactividad? @relation(fields: [subactividadId], references: [id])
+  usuario              Usuario       @relation(fields: [usuarioId], references: [id])
 
   @@index([usuarioId, fecha])
   @@index([actividadId])

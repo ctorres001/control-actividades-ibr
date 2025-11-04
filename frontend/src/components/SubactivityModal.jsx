@@ -29,11 +29,11 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
   }, [activity, loadSubactivities]);
 
   const handleConfirm = () => {
-    const fullComment = (clientRef ? `[${clientRef}] ` : '') + (comment || '');
     onConfirm({ 
       subactivityId: selected, 
       subactivityName: subactivities.find(s => s.id === selected)?.nombreSubactividad || subactivities.find(s => s.id === selected)?.nombre_subactividad, 
-      comment: fullComment || null 
+      idClienteReferencia: clientRef || null,
+      resumenBreve: comment || null
     });
   };
 

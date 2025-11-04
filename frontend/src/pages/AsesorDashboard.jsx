@@ -195,7 +195,7 @@ export default function AsesorDashboard() {
     }
   };
 
-  const handleConfirmModal = async ({ subactivityId, comment }) => {
+  const handleConfirmModal = async ({ subactivityId, idClienteReferencia, resumenBreve }) => {
     setShowModal(false);
     if (!pendingActivity) return;
     
@@ -211,7 +211,8 @@ export default function AsesorDashboard() {
       const payload = { 
         actividadId: pendingActivity.id, 
         subactividadId: subactivityId, 
-        observaciones: comment 
+        idClienteReferencia: idClienteReferencia,
+        resumenBreve: resumenBreve
       };
       
       console.log('🔍 Iniciando actividad con detalles:', payload);
