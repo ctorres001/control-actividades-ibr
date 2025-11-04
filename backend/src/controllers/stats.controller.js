@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma.js';
+import { parseIntOptional, validateDateRange } from '../utils/validation.js';
 
 // Cache corto para asesores activos
 const activeAsesoresCache = new Map(); // key: `${userId}:${campaignKey}` -> { ts, data }
@@ -15,6 +16,18 @@ export const getStats = async (req, res) => {
       rolId, 
       supervisorId 
     } = req.query;
+
+    // Validar rango de fechas (máximo 1 año)
+    if (fechaInicio && fechaFin) {
+      try {
+        validateDateRange(fechaInicio, fechaFin, 365);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          error: error.message
+        });
+      }
+    }
 
     // Construir filtros dinámicamente
     const where = {};
@@ -33,14 +46,14 @@ export const getStats = async (req, res) => {
 
     // Filtro de usuario
     if (usuarioId) {
-      where.usuarioId = parseInt(usuarioId);
+      where.usuarioId = parseIntOptional(usuarioId, 'usuarioId');
     }
 
     // Filtro de campaña
     if (campañaId) {
       where.usuario = {
         ...(where.usuario || {}),
-        is: { campañaId: parseInt(campañaId) }
+        is: { campañaId: parseIntOptional(campañaId, 'campañaId') }
       };
     }
 
@@ -50,7 +63,7 @@ export const getStats = async (req, res) => {
         ...(where.usuario || {}),
         is: {
           ...(where.usuario?.is || {}),
-          rolId: parseInt(rolId)
+          rolId: parseIntOptional(rolId, 'rolId')
         }
       };
     }
@@ -88,34 +101,45 @@ export const getStats = async (req, res) => {
 
     // Si es supervisor, solo puede ver usuarios de campañas asignadas
     if (req.user.rol === 'Supervisor') {
+      let campañaIds = [];
+      
       try {
         const asignaciones = await prisma.supervisorCampaña.findMany({
           where: { supervisorId: req.user.id },
           select: { campañaId: true }
         });
-        const campañaIds = asignaciones.map(a => a.campañaId);
+        campañaIds = asignaciones.map(a => a.campañaId);
+        
         if (campañaIds.length > 0) {
-          where.usuario = { ...(where.usuario || {}), is: { campañaId: { in: campañaIds } } };
           console.log(`✅ Supervisor ${req.user.id} (${req.user.nombreCompleto}) - Campañas asignadas: ${campañaIds.length}`);
-        } else if (req.user.campañaId) {
-          // Fallback: modelo antiguo, una sola campaña
-          console.warn(`⚠️ Supervisor ${req.user.id} (${req.user.nombreCompleto}) sin asignaciones M:N - usando campaña única: ${req.user.campañaId}`);
-          where.usuario = { ...(where.usuario || {}), is: { campañaId: req.user.campañaId } };
-        } else {
-          // Sin campañas asignadas → no ver nada
-          console.warn(`⚠️ Supervisor ${req.user.id} (${req.user.nombreCompleto}) sin campañas asignadas - acceso restringido`);
-          where.usuario = { ...(where.usuario || {}), is: { id: -1 } };
         }
       } catch (error) {
-        // Fallback si aún no existe la tabla m:n
-        console.warn(`⚠️ Error al obtener asignaciones M:N para supervisor ${req.user.id}: ${error.message} - usando fallback`);
-        if (req.user.campañaId) {
-          where.usuario = { ...(where.usuario || {}), is: { campañaId: req.user.campañaId } };
-        } else {
-          console.error(`❌ Supervisor ${req.user.id} sin campañaId en fallback - sin acceso a datos`);
-          where.usuario = { ...(where.usuario || {}), is: { id: -1 } };
-        }
+        console.error('⚠️ Error al obtener asignaciones M:N para supervisor:', error.message);
       }
+      
+      // Fallback a campaña única del usuario si no tiene asignaciones M:N
+      if (campañaIds.length === 0 && req.user.campañaId) {
+        campañaIds = [req.user.campañaId];
+        console.warn(`⚠️ Supervisor ${req.user.id} sin asignaciones M:N - usando campaña única: ${req.user.campañaId}`);
+      }
+      
+      // 🔒 CRÍTICO: Si no tiene campañas, retornar vacío inmediatamente
+      if (campañaIds.length === 0) {
+        console.warn(`🚫 Supervisor ${req.user.id} (${req.user.nombreCompleto}) sin campañas asignadas - acceso denegado`);
+        return res.json({
+          success: true,
+          data: [],
+          message: 'No tienes campañas asignadas'
+        });
+      }
+      
+      where.usuario = { 
+        ...(where.usuario || {}), 
+        is: { 
+          ...(where.usuario?.is || {}),
+          campañaId: { in: campañaIds } 
+        } 
+      };
     }
 
     // Si es asesor, solo puede ver sus propios registros

@@ -2,6 +2,7 @@ import { prisma } from '../utils/prisma.js';
 import { APP_TZ } from '../utils/time.js';
 import bcrypt from 'bcrypt';
 import { validatePassword, getPasswordRequirements } from '../utils/passwordValidator.js';
+import { parseIdSafe, parseIntOptional } from '../utils/validation.js';
 
 // ===== USUARIOS =====
 
@@ -14,10 +15,10 @@ const getUsers = async (req, res) => {
 
     const { rolId, campañaId, estado } = req.query;
 
-    // Construir filtros
+    // Construir filtros con validación
     const where = {};
-    if (rolId) where.rolId = parseInt(rolId);
-    if (campañaId) where.campañaId = parseInt(campañaId);
+    if (rolId) where.rolId = parseIntOptional(rolId, 'rolId');
+    if (campañaId) where.campañaId = parseIntOptional(campañaId, 'campañaId');
     if (estado) where.estado = estado === 'Activo';
 
     const usuarios = await prisma.usuario.findMany({
@@ -83,7 +84,7 @@ const createUser = async (req, res) => {
         nombreCompleto,
         correoElectronico,
         contraseña: hashedPassword,
-        rolId: parseInt(rolId),
+        rolId: parseIntOptional(rolId, 'rolId'),
         campañaId: campañaId ? parseInt(campañaId) : null,
         estado: estado === 'Activo'
       },
@@ -118,7 +119,7 @@ const updateUser = async (req, res) => {
 
     // Verificar si el usuario existe
     const existingUser = await prisma.usuario.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     if (!existingUser) {
@@ -130,7 +131,7 @@ const updateUser = async (req, res) => {
       nombreUsuario,
       nombreCompleto,
       correoElectronico,
-      rolId: parseInt(rolId),
+      rolId: parseIntOptional(rolId, 'rolId'),
       campañaId: campañaId ? parseInt(campañaId) : null,
       estado: estado === 'Activo'
     };
@@ -151,7 +152,7 @@ const updateUser = async (req, res) => {
 
     // Actualizar usuario
     const usuarioActualizado = await prisma.usuario.update({
-      where: { id: parseInt(id) },
+      where: { id: parseIdSafe(id, 'id') },
       data: updateData,
       include: {
         rol: {
@@ -181,7 +182,7 @@ const deleteUser = async (req, res) => {
 
     // Verificar si el usuario existe
     const existingUser = await prisma.usuario.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     if (!existingUser) {
@@ -201,7 +202,7 @@ const deleteUser = async (req, res) => {
 
     // Eliminar usuario
     await prisma.usuario.delete({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     res.json({ message: 'Usuario eliminado exitosamente' });
@@ -235,7 +236,7 @@ const changePassword = async (req, res) => {
 
     // Verificar si el usuario existe
     const existingUser = await prisma.usuario.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     if (!existingUser) {
@@ -247,7 +248,7 @@ const changePassword = async (req, res) => {
 
     // Actualizar contraseña
     await prisma.usuario.update({
-      where: { id: parseInt(id) },
+      where: { id: parseIdSafe(id, 'id') },
       data: { contraseña: hashedPassword }
     });
 
@@ -311,7 +312,7 @@ const createActivity = async (req, res) => {
       data: {
         nombreActividad,
         descripcion: descripcion || '',
-        orden: parseInt(orden),
+        orden: parseIntOptional(orden, 'orden'),
         activo: activo !== false
       }
     });
@@ -335,7 +336,7 @@ const updateActivity = async (req, res) => {
 
     // Verificar si la actividad existe
     const existingActivity = await prisma.actividad.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     if (!existingActivity) {
@@ -376,11 +377,11 @@ const updateActivity = async (req, res) => {
 
     // Actualizar actividad
     const actividadActualizada = await prisma.actividad.update({
-      where: { id: parseInt(id) },
+      where: { id: parseIdSafe(id, 'id') },
       data: {
         nombreActividad,
         descripcion,
-        orden: parseInt(orden),
+        orden: parseIntOptional(orden, 'orden'),
         activo
       }
     });
@@ -403,7 +404,7 @@ const deleteActivity = async (req, res) => {
 
     // Verificar si la actividad existe
     const existingActivity = await prisma.actividad.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     if (!existingActivity) {
@@ -436,7 +437,7 @@ const deleteActivity = async (req, res) => {
 
     // Si no tiene registros y no es crítica, permitir eliminación
     await prisma.actividad.delete({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     console.log(`✅ Actividad "${existingActivity.nombreActividad}" eliminada por admin ${req.user.id}`);
@@ -466,7 +467,7 @@ const toggleActivityStatus = async (req, res) => {
 
     // Verificar si la actividad existe
     const existingActivity = await prisma.actividad.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     if (!existingActivity) {
@@ -475,7 +476,7 @@ const toggleActivityStatus = async (req, res) => {
 
     // Actualizar solo el campo activo
     const actividadActualizada = await prisma.actividad.update({
-      where: { id: parseInt(id) },
+      where: { id: parseIdSafe(id, 'id') },
       data: { activo }
     });
 
@@ -552,7 +553,7 @@ const createSubactivity = async (req, res) => {
     }
 
     // 🔄 Si no se proporciona orden, calcularlo automáticamente
-    let ordenFinal = orden !== undefined ? parseInt(orden) : null;
+    let ordenFinal = orden !== undefined ? parseIntOptional(orden, 'orden') : null;
     
     if (ordenFinal === null || ordenFinal === 0) {
       // Obtener el máximo orden actual para esta actividad
@@ -591,7 +592,7 @@ const updateSubactivity = async (req, res) => {
     const { id } = req.params;
     const { actividadId, nombreSubactividad, descripcion, orden, activo } = req.body;
 
-    const existing = await prisma.subactividad.findUnique({ where: { id: parseInt(id) } });
+    const existing = await prisma.subactividad.findUnique({ where: { id: parseIdSafe(id, 'id') } });
     if (!existing) return res.status(404).json({ error: 'Subactividad no encontrada' });
 
     if (nombreSubactividad && nombreSubactividad !== existing.nombreSubactividad) {
@@ -602,12 +603,12 @@ const updateSubactivity = async (req, res) => {
     }
 
     const subAct = await prisma.subactividad.update({
-      where: { id: parseInt(id) },
+      where: { id: parseIdSafe(id, 'id') },
       data: {
         actividadId: actividadId ? parseInt(actividadId) : undefined,
         nombreSubactividad: nombreSubactividad ?? undefined,
         descripcion: descripcion ?? undefined,
-        orden: orden !== undefined ? parseInt(orden) : undefined,
+        orden: orden !== undefined ? parseIntOptional(orden, 'orden') : undefined,
         activo: activo ?? undefined
       }
     });
@@ -626,7 +627,7 @@ const deleteSubactivity = async (req, res) => {
     }
 
     const { id } = req.params;
-    const existing = await prisma.subactividad.findUnique({ where: { id: parseInt(id) } });
+    const existing = await prisma.subactividad.findUnique({ where: { id: parseIdSafe(id, 'id') } });
     if (!existing) return res.status(404).json({ error: 'Subactividad no encontrada' });
 
     const registrosCount = await prisma.registroActividad.count({ where: { subactividadId: parseInt(id) } });
@@ -634,7 +635,7 @@ const deleteSubactivity = async (req, res) => {
       return res.status(400).json({ error: `No se puede eliminar: ${registrosCount} registros asociados` });
     }
 
-    await prisma.subactividad.delete({ where: { id: parseInt(id) } });
+    await prisma.subactividad.delete({ where: { id: parseIdSafe(id, 'id') } });
     res.json({ message: 'Subactividad eliminada exitosamente' });
   } catch (error) {
     console.error('Error al eliminar subactividad:', error);
@@ -649,9 +650,9 @@ const toggleSubactivityStatus = async (req, res) => {
     }
     const { id } = req.params;
     const { activo } = req.body;
-    const existing = await prisma.subactividad.findUnique({ where: { id: parseInt(id) } });
+    const existing = await prisma.subactividad.findUnique({ where: { id: parseIdSafe(id, 'id') } });
     if (!existing) return res.status(404).json({ error: 'Subactividad no encontrada' });
-    const updated = await prisma.subactividad.update({ where: { id: parseInt(id) }, data: { activo } });
+    const updated = await prisma.subactividad.update({ where: { id: parseIdSafe(id, 'id') }, data: { activo } });
     res.json(updated);
   } catch (error) {
     console.error('Error al cambiar estado de subactividad:', error);
@@ -701,7 +702,7 @@ const updateRole = async (req, res) => {
     }
     const { id } = req.params;
     const { nombre } = req.body;
-    const role = await prisma.rol.findUnique({ where: { id: parseInt(id) } });
+    const role = await prisma.rol.findUnique({ where: { id: parseIdSafe(id, 'id') } });
     if (!role) return res.status(404).json({ error: 'Rol no encontrado' });
     if (CORE_ROLES.includes(role.nombre)) return res.status(400).json({ error: 'No se puede renombrar un rol núcleo' });
     if (!nombre) return res.status(400).json({ error: 'El nombre es requerido' });
@@ -722,7 +723,7 @@ const deleteRole = async (req, res) => {
       return res.status(403).json({ error: 'No autorizado' });
     }
     const { id } = req.params;
-    const role = await prisma.rol.findUnique({ where: { id: parseInt(id) } });
+    const role = await prisma.rol.findUnique({ where: { id: parseIdSafe(id, 'id') } });
     if (!role) return res.status(404).json({ error: 'Rol no encontrado' });
     if (CORE_ROLES.includes(role.nombre)) return res.status(400).json({ error: 'No se puede eliminar un rol núcleo' });
     const usersCount = await prisma.usuario.count({ where: { rolId: role.id } });
@@ -746,7 +747,7 @@ const getSupervisorCampaigns = async (req, res) => {
     
     // Verificar que el usuario existe y es supervisor
     const usuario = await prisma.usuario.findUnique({ 
-      where: { id: parseInt(id) },
+      where: { id: parseIdSafe(id, 'id') },
       include: { rol: true }
     });
     
@@ -783,7 +784,7 @@ const setSupervisorCampaigns = async (req, res) => {
     
     // Verificar que el usuario existe y es supervisor
     const usuario = await prisma.usuario.findUnique({ 
-      where: { id: parseInt(id) },
+      where: { id: parseIdSafe(id, 'id') },
       include: { rol: true }
     });
     
@@ -870,7 +871,7 @@ const updateCampaign = async (req, res) => {
 
     // Verificar si la campaña existe
     const existingCampaign = await prisma.campaña.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     if (!existingCampaign) {
@@ -890,7 +891,7 @@ const updateCampaign = async (req, res) => {
 
     // Actualizar campaña
     const campañaActualizada = await prisma.campaña.update({
-      where: { id: parseInt(id) },
+      where: { id: parseIdSafe(id, 'id') },
       data: { nombre }
     });
 
@@ -912,7 +913,7 @@ const deleteCampaign = async (req, res) => {
 
     // Verificar si la campaña existe
     const existingCampaign = await prisma.campaña.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     if (!existingCampaign) {
@@ -932,7 +933,7 @@ const deleteCampaign = async (req, res) => {
 
     // Eliminar campaña
     await prisma.campaña.delete({
-      where: { id: parseInt(id) }
+      where: { id: parseIdSafe(id, 'id') }
     });
 
     res.json({ message: 'Campaña eliminada exitosamente' });
@@ -1127,3 +1128,4 @@ export const deleteHorarioUsuario = async (req, res) => {
     res.status(500).json({ success: false, error: 'Error al eliminar horario' });
   }
 };
+

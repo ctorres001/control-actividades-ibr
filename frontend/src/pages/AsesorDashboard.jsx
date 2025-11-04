@@ -40,8 +40,11 @@ export default function AsesorDashboard() {
       const res = await activityService.getActiveActivities();
       setActivities(res || []);
     } catch (err) {
-      toast.error('No se pudieron cargar las actividades');
-      console.error('loadActivities error', err?.message);
+      // Solo mostrar error si no es un error de autenticación (401)
+      if (err?.response?.status !== 401) {
+        console.error('loadActivities error', err?.message);
+        // No mostrar toast en carga inicial para evitar alertas molestas
+      }
     }
   }, []);
 

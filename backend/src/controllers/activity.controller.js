@@ -5,11 +5,25 @@
 
 import { prisma } from '../utils/prisma.js';
 import { getDateStrInTZ, dateStrToUtcDate } from '../utils/time.js';
+import { parseIdSafe, validateDateStr } from '../utils/validation.js';
 
 // Cachés en memoria con TTL corto para aliviar carga bajo alto polling
 const summaryCache = new Map(); // key: `${usuarioId}:${dateStr}` -> { ts, data }
 const logCache = new Map();     // key: `${usuarioId}:${dateStr}` -> { ts, data }
 const CACHE_TTL_MS = parseInt(process.env.SUMMARY_LOG_CACHE_TTL_MS || '2000', 10); // 2s por defecto
+
+/**
+ * Invalida el caché de summary y log para un usuario
+ * @param {number} usuarioId - ID del usuario
+ * @param {string} dateStr - Fecha en formato YYYY-MM-DD (opcional, usa hoy por defecto)
+ */
+function invalidateUserCache(usuarioId, dateStr = null) {
+  const date = dateStr || getDateStrInTZ();
+  const cacheKey = `${usuarioId}:${date}`;
+  summaryCache.delete(cacheKey);
+  logCache.delete(cacheKey);
+  console.log(`🗑️ Caché invalidado para usuario ${usuarioId}, fecha ${date}`);
+}
 
 // =====================================================
 // GET ACTIVE ACTIVITIES - Obtener actividades activas
@@ -50,10 +64,11 @@ export const getActiveActivities = async (req, res) => {
 export const getSubactivities = async (req, res) => {
   try {
     const { activityId } = req.params;
+    const actividadId = parseIdSafe(activityId, 'activityId');
 
     const subactividades = await prisma.subactividad.findMany({
       where: {
-        actividadId: parseInt(activityId)
+        actividadId: actividadId
       },
       orderBy: [
         { orden: 'asc' },
@@ -229,6 +244,9 @@ export const startActivity = async (req, res) => {
 
     console.log(`✅ Actividad iniciada: Usuario ${usuarioId} - ${actividad.nombreActividad}`);
 
+    // 🔄 Invalidar caché después de iniciar actividad
+    invalidateUserCache(usuarioId);
+
     res.status(201).json({
       success: true,
       message: 'Actividad iniciada correctamente',
@@ -302,6 +320,9 @@ export const stopActivity = async (req, res) => {
         });
 
     console.log(`⏹️ Actividad detenida: Usuario ${usuarioId} - Duración: ${duracionSeg}s`);
+
+    // 🔄 Invalidar caché después de detener actividad
+    invalidateUserCache(usuarioId);
 
     res.json({
       success: true,
@@ -402,6 +423,9 @@ export const getTodaySummary = async (req, res) => {
     let dateStr = req.query?.date;
     if (!dateStr) {
       dateStr = getDateStrInTZ();
+    } else {
+      // Validar formato si viene del query
+      dateStr = validateDateStr(dateStr, 'date');
     }
 
     // Cache key
@@ -457,6 +481,9 @@ export const getTodayLog = async (req, res) => {
     let dateStr = req.query?.date;
     if (!dateStr) {
       dateStr = getDateStrInTZ();
+    } else {
+      // Validar formato si viene del query
+      dateStr = validateDateStr(dateStr, 'date');
     }
 
     // Cache key
