@@ -18,22 +18,28 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
           setLoading(false);
         }
       } catch (err) {
-        console.debug('SubactivityModal: loadSubactivities error', err);
+        console.error('SubactivityModal: loadSubactivities error', err);
         if (mounted) {
           setSubactivities([]);
           setLoading(false);
+          // Mostrar error al usuario
+          if (onCancel) {
+            setTimeout(() => {
+              onCancel();
+            }, 100);
+          }
         }
       }
     })();
     return () => { mounted = false; };
-  }, [activity, loadSubactivities]);
+  }, [activity, loadSubactivities, onCancel]);
 
   const handleConfirm = () => {
     onConfirm({ 
       subactivityId: selected, 
       subactivityName: subactivities.find(s => s.id === selected)?.nombreSubactividad || subactivities.find(s => s.id === selected)?.nombre_subactividad, 
-      idClienteReferencia: clientRef || null,
-      resumenBreve: comment || null
+      idClienteReferencia: clientRef.trim() || null,
+      resumenBreve: comment.trim() || null
     });
   };
 
@@ -72,6 +78,7 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
                 value={clientRef} 
                 onChange={(e) => setClientRef(e.target.value)} 
                 placeholder="Ej: CLI-0003" 
+                maxLength={100}
               />
             </label>
 
@@ -83,6 +90,7 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
                 value={comment} 
                 onChange={(e) => setComment(e.target.value)} 
                 placeholder="Descripción..." 
+                maxLength={500}
               />
             </label>
           </div>

@@ -25,6 +25,8 @@ export default function AsesorDashboard() {
   const [log, setLog] = useState([]);
   const [isStarting, setIsStarting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasInitialized, setHasInitialized] = useState(false); // 🔒 Nuevo: Bandera de inicialización
+  
   // Día iniciado: considerar tanto el log como el estado local inmediato tras iniciar "Ingreso"
   const dayStartedFromLog = log?.some((r) => (r.nombreActividad || r.nombre_actividad) === 'Ingreso');
   const dayStarted = dayStartedFromLog || currentActivityName === 'Ingreso' || !!currentRegistroId;
@@ -38,8 +40,8 @@ export default function AsesorDashboard() {
       const res = await activityService.getActiveActivities();
       setActivities(res || []);
     } catch (err) {
-      // Silencioso en carga inicial; el interceptor mostrará si es persistente
-      console.warn('loadActivities error', err?.message);
+      toast.error('No se pudieron cargar las actividades');
+      console.error('loadActivities error', err?.message);
     }
   }, []);
 
@@ -76,7 +78,13 @@ export default function AsesorDashboard() {
           const now = new Date();
           const secondsElapsed = Math.floor((now - start) / 1000);
           setCurrentStartOffset(secondsElapsed);
-          console.log('✅ Actividad restaurada:', res.actividad?.nombreActividad, 'Offset:', secondsElapsed);
+          console.log('✅ Actividad restaurada:', {
+            nombreActividad: res.actividad?.nombreActividad,
+            horaInicio: res.horaInicio,
+            horaInicioDate: start.toISOString(),
+            now: now.toISOString(),
+            offset: secondsElapsed
+          });
         }
       } else {
         console.log('ℹ️ No hay actividad activa para restaurar');
@@ -95,8 +103,16 @@ export default function AsesorDashboard() {
         restoreOpen()
       ]);
       setIsLoading(false);
+      setHasInitialized(true); // 🔒 Marcar como inicializado
     };
     initDashboard();
+
+    // 🔒 CLEANUP: Resetear estados al desmontar componente
+    return () => {
+      setIsStarting(false);
+      setPendingActivity(null);
+      setShowModal(false);
+    };
   }, [loadActivities, loadSummaryAndLog, restoreOpen]);
 
   const handleStartClick = async (activity) => {
@@ -278,10 +294,15 @@ export default function AsesorDashboard() {
   console.log('🔍 AsesorDashboard render:', {
     isStarting,
     isLoading,
+    hasInitialized,
     currentActivityId,
     currentActivityName,
+    currentRegistroId,
+    dayStartedFromLog,
     dayStarted,
-    breakActive
+    breakActive,
+    jornalFinished,
+    logLength: log?.length || 0
   });
 
   return (
@@ -332,7 +353,7 @@ export default function AsesorDashboard() {
               currentActivityId={currentActivityId} 
               onStart={handleStartClick}
               jornalFinished={jornalFinished}
-              disabled={isStarting}
+              disabled={isStarting || !hasInitialized}
               dayStarted={!!dayStarted}
               breakActive={!!breakActive}
             />
