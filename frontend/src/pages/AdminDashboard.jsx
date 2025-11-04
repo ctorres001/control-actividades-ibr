@@ -126,8 +126,8 @@ export default function AdminDashboard() {
     { id: 'campaigns', label: 'Campañas', icon: <Target className="w-5 h-5" /> },
     { id: 'subactivities', label: 'Subactividades', icon: <ListTree className="w-5 h-5" /> },
     { id: 'roles', label: 'Roles', icon: <Shield className="w-5 h-5" /> },
-    { id: 'horarios', label: 'Horarios', icon: <Clock className="w-5 h-5" /> },
-    { id: 'export', label: 'Exportar', icon: <FileSpreadsheet className="w-5 h-5" /> }
+    { id: 'horarios', label: 'Horarios', icon: <Clock className="w-5 h-5" /> }
+    // { id: 'export', label: 'Exportar', icon: <FileSpreadsheet className="w-5 h-5" /> } // ⚠️ OCULTO: Exportación disponible desde botón en vista de estadísticas
   ];
 
   return (
@@ -369,8 +369,8 @@ export default function AdminDashboard() {
   {/* Tab de Gestión de Horarios */}
   {activeTab === 'horarios' && <HorariosManagement />}
 
-  {/* Tab de Exportación */}
-  {activeTab === 'export' && (
+  {/* Tab de Exportación - OCULTO: Exportación disponible desde botón en vista de estadísticas */}
+  {/* {activeTab === 'export' && (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -394,7 +394,7 @@ export default function AdminDashboard() {
         </button>
       </div>
     </div>
-  )}
+  )} */}
 
   {/* Modal de Exportación */}
   <ExportDetailModal 

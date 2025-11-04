@@ -146,6 +146,9 @@ export function exportToExcel(registros, filename = 'estadisticas', options = {}
         'Usuario': registro.usuario?.nombreCompleto || '-',
         'Campaña': registro.usuario?.campaña?.nombre || '-',
         'Actividad': registro.nombreActividad || '-',
+        'Subactividad': registro.subactividad?.nombreSubactividad || '-',
+        'ID Cliente/Referencia': registro.idClienteReferencia || '-',
+        'Resumen Breve': registro.resumenBreve || '-',
         'Hora Inicio': start, // Mantener como Date
         'Hora Fin': registro.fechaFin ? end : 'En curso',
         'Duración': durationDays, // En días para Excel
@@ -164,20 +167,20 @@ export function exportToExcel(registros, filename = 'estadisticas', options = {}
         detailSheet[cellRefFecha].z = 'dd/mm/yyyy';
       }
 
-      // Columna E (Hora Inicio) - formato de hora
-      const cellRefInicio = XLSX.utils.encode_cell({ r: R, c: 4 });
+      // Columna E (Hora Inicio) - formato de hora (ahora columna H por las nuevas columnas)
+      const cellRefInicio = XLSX.utils.encode_cell({ r: R, c: 7 });
       if (detailSheet[cellRefInicio] && typeof detailSheet[cellRefInicio].v !== 'string') {
         detailSheet[cellRefInicio].z = 'hh:mm:ss AM/PM';
       }
 
-      // Columna F (Hora Fin) - formato de hora
-      const cellRefFin = XLSX.utils.encode_cell({ r: R, c: 5 });
+      // Columna F (Hora Fin) - formato de hora (ahora columna I)
+      const cellRefFin = XLSX.utils.encode_cell({ r: R, c: 8 });
       if (detailSheet[cellRefFin] && typeof detailSheet[cellRefFin].v !== 'string') {
         detailSheet[cellRefFin].z = 'hh:mm:ss AM/PM';
       }
 
-      // Columna G (Duración) - formato de tiempo HH:MM:SS
-      const cellRefDur = XLSX.utils.encode_cell({ r: R, c: 6 });
+      // Columna G (Duración) - formato de tiempo HH:MM:SS (ahora columna J)
+      const cellRefDur = XLSX.utils.encode_cell({ r: R, c: 9 });
       if (detailSheet[cellRefDur] && typeof detailSheet[cellRefDur].v === 'number') {
         detailSheet[cellRefDur].z = '[hh]:mm:ss'; // [hh] permite horas > 24
       }
@@ -189,6 +192,9 @@ export function exportToExcel(registros, filename = 'estadisticas', options = {}
       { wch: 25 }, // Usuario
       { wch: 20 }, // Campaña
       { wch: 20 }, // Actividad
+      { wch: 20 }, // Subactividad
+      { wch: 20 }, // ID Cliente/Referencia
+      { wch: 35 }, // Resumen Breve
       { wch: 15 }, // Hora Inicio
       { wch: 15 }, // Hora Fin
       { wch: 12 }, // Duración
