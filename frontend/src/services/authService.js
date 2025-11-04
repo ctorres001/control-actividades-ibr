@@ -9,10 +9,10 @@ export const authService = {
   async login(credentials) {
     const { data } = await api.post('/auth/login', credentials);
     
-    // Guardar token y usuario en localStorage
+    // Guardar token y usuario en sessionStorage (se borra al cerrar navegador)
     if (data.success && data.token) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.usuario));
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.usuario));
     }
     
     return data;
@@ -29,19 +29,19 @@ export const authService = {
     try {
       await api.post('/auth/logout');
     } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
     }
   },
 
-  // Obtener usuario actual del localStorage
+  // Obtener usuario actual del sessionStorage
   getCurrentUser() {
-    const user = localStorage.getItem('user');
+    const user = sessionStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   },
 
   // Verificar si hay sesión activa
   isAuthenticated() {
-    return !!localStorage.getItem('token');
+    return !!sessionStorage.getItem('token');
   }
 };

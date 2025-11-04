@@ -36,7 +36,7 @@ export function setLogoutHandler(fn) {
 // =====================================================
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -92,11 +92,11 @@ api.interceptors.response.use(
     // Token expirado o inválido
     if (error.response?.status === 401) {
       // Solo mostrar "sesión expirada" si había un token previamente
-      const hadToken = !!localStorage.getItem('token');
+      const hadToken = !!sessionStorage.getItem('token');
       
       // Limpiar almacenamiento local
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
 
       // Usar logout handler registrado por la UI (evita recargar la app)
       if (logoutHandler) {

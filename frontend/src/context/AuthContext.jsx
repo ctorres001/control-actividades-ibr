@@ -24,8 +24,8 @@ export const AuthProvider = ({ children }) => {
           setUser(userData);
         } catch (error) {
           console.error('Error validando sesión:', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('user');
         }
       }
       setLoading(false);
@@ -39,8 +39,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     setLogoutHandler(() => {
       try {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         setUser(null);
         navigate('/login');
       } catch {
