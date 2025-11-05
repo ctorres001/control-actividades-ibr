@@ -201,7 +201,7 @@ const deleteUser = async (req, res) => {
     }
 
     // Verificar si tiene registros asociados
-    const registrosCount = await prisma.registro.count({
+    const registrosCount = await prisma.registroActividad.count({
       where: { usuarioId: parseInt(id) }
     });
 
