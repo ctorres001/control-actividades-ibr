@@ -1053,10 +1053,18 @@ export const getHorariosUsuario = async (req, res) => {
     }
 
     const { usuarioId } = req.params;
+    const { tipoHorario } = req.query; // Filtro opcional por tipo
+
+    const where = { usuarioId: parseInt(usuarioId) };
+    if (tipoHorario) where.tipoHorario = tipoHorario;
 
     const horarios = await prisma.horarioLaboral.findMany({
-      where: { usuarioId: parseInt(usuarioId) },
-      orderBy: { diaSemana: 'asc' }
+      where,
+      orderBy: [
+        { tipoHorario: 'asc' },
+        { diaSemana: 'asc' },
+        { fechaEspecifica: 'asc' }
+      ]
     });
 
     res.json({ success: true, data: horarios });
@@ -1073,17 +1081,21 @@ export const upsertHorariosUsuario = async (req, res) => {
     }
 
     const { usuarioId } = req.params;
-    const { horarios } = req.body; // Array de: { diaSemana, horaInicio, horaFin, horasObjetivo, activo }
+    const { horarios, tipoHorario } = req.body; 
+    // horarios: Array de objetos con campos según tipoHorario
+    // tipoHorario: 'semanal' | 'mensual' | 'diario'
 
     if (!Array.isArray(horarios)) {
       return res.status(400).json({ error: 'Se requiere un array de horarios' });
     }
 
-    // Validar formato de horarios
+    if (!tipoHorario || !['semanal', 'mensual', 'diario'].includes(tipoHorario)) {
+      return res.status(400).json({ error: 'tipoHorario debe ser: semanal, mensual o diario' });
+    }
+
+    // Validar formato de horarios según tipo
     for (const h of horarios) {
-      if (!h.diaSemana || h.diaSemana < 1 || h.diaSemana > 7) {
-        return res.status(400).json({ error: 'diaSemana debe estar entre 1 y 7' });
-      }
+      // Validaciones comunes
       if (!h.horaInicio || !/^\d{2}:\d{2}$/.test(h.horaInicio)) {
         return res.status(400).json({ error: 'horaInicio debe tener formato HH:MM' });
       }
@@ -1093,11 +1105,25 @@ export const upsertHorariosUsuario = async (req, res) => {
       if (h.horasObjetivo === undefined || h.horasObjetivo < 0) {
         return res.status(400).json({ error: 'horasObjetivo debe ser >= 0' });
       }
+
+      // Validaciones específicas por tipo
+      if (tipoHorario === 'semanal') {
+        if (!h.diaSemana || h.diaSemana < 1 || h.diaSemana > 7) {
+          return res.status(400).json({ error: 'diaSemana debe estar entre 1 y 7 para horarios semanales' });
+        }
+      } else if (tipoHorario === 'mensual' || tipoHorario === 'diario') {
+        if (!h.fechaEspecifica) {
+          return res.status(400).json({ error: `fechaEspecifica es requerida para horarios ${tipoHorario}s` });
+        }
+      }
     }
 
-    // Eliminar horarios existentes del usuario
+    // Eliminar horarios existentes del usuario de este tipo específico
     await prisma.horarioLaboral.deleteMany({
-      where: { usuarioId: parseInt(usuarioId) }
+      where: { 
+        usuarioId: parseInt(usuarioId),
+        tipoHorario
+      }
     });
 
     // Crear nuevos horarios
@@ -1105,7 +1131,9 @@ export const upsertHorariosUsuario = async (req, res) => {
       await prisma.horarioLaboral.createMany({
         data: horarios.map(h => ({
           usuarioId: parseInt(usuarioId),
-          diaSemana: h.diaSemana,
+          tipoHorario,
+          diaSemana: tipoHorario === 'semanal' ? h.diaSemana : null,
+          fechaEspecifica: (tipoHorario === 'mensual' || tipoHorario === 'diario') ? new Date(h.fechaEspecifica) : null,
           horaInicio: h.horaInicio,
           horaFin: h.horaFin,
           horasObjetivo: h.horasObjetivo,
@@ -1114,10 +1142,16 @@ export const upsertHorariosUsuario = async (req, res) => {
       });
     }
 
-    // Devolver horarios actualizados
+    // Devolver horarios actualizados de este tipo
     const nuevosHorarios = await prisma.horarioLaboral.findMany({
-      where: { usuarioId: parseInt(usuarioId) },
-      orderBy: { diaSemana: 'asc' }
+      where: { 
+        usuarioId: parseInt(usuarioId),
+        tipoHorario
+      },
+      orderBy: [
+        { diaSemana: 'asc' },
+        { fechaEspecifica: 'asc' }
+      ]
     });
 
     res.json({ success: true, message: 'Horarios actualizados correctamente', data: nuevosHorarios });
@@ -1133,12 +1167,12 @@ export const deleteHorarioUsuario = async (req, res) => {
       return res.status(403).json({ error: 'No autorizado' });
     }
 
-    const { usuarioId, diaSemana } = req.params;
+    const { usuarioId, horarioId } = req.params;
 
-    await prisma.horarioLaboral.deleteMany({
+    await prisma.horarioLaboral.delete({
       where: {
-        usuarioId: parseInt(usuarioId),
-        diaSemana: parseInt(diaSemana)
+        id: parseInt(horarioId),
+        usuarioId: parseInt(usuarioId)
       }
     });
 

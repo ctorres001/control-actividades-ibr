@@ -53,9 +53,9 @@ router.put('/supervisors/:id/campaigns', adminController.setSupervisorCampaigns)
 router.post('/maintenance/fix-fecha', adminController.fixDailyDateFromStart);
 
 // ===== RUTAS DE HORARIOS LABORALES =====
-router.get('/horarios/:usuarioId', adminController.getHorariosUsuario);
-router.put('/horarios/:usuarioId', adminController.upsertHorariosUsuario);
-router.delete('/horarios/:usuarioId/:diaSemana', adminController.deleteHorarioUsuario);
+router.get('/horarios/:usuarioId', adminController.getHorariosUsuario); // ?tipoHorario=semanal|mensual|diario (opcional)
+router.put('/horarios/:usuarioId', adminController.upsertHorariosUsuario); // Body: { tipoHorario, horarios: [...] }
+router.delete('/horarios/:usuarioId/:horarioId', adminController.deleteHorarioUsuario);
 
 // ===== RUTAS DE EXPORTACIÓN =====
 router.get('/export/actividades-detalle', exportController.exportActividadesDetalle);

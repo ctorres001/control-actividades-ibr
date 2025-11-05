@@ -139,12 +139,17 @@ model SupervisorCampaña {
   @@map("supervisor_campañas")
 }
 
-/// Configuración de horarios laborales por usuario y día de la semana
-/// diaSemana: 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado, 7=Domingo
+/// Configuración de horarios laborales por usuario
+/// Soporta tres modalidades:
+/// 1. Semanal (tipoHorario='semanal'): Horario fijo por día de semana (diaSemana 1-7)
+/// 2. Mensual (tipoHorario='mensual'): Horarios variables cada mes (fechaEspecifica con día del mes)
+/// 3. Diario (tipoHorario='diario'): Horarios únicos por fecha específica
 model HorarioLaboral {
   id            Int      @id @default(autoincrement())
   usuarioId     Int      @map("usuario_id")
-  diaSemana     Int      @map("dia_semana") // 1-7 (Lunes-Domingo)
+  tipoHorario   String   @default("semanal") @map("tipo_horario") @db.VarChar(20) // 'semanal' | 'mensual' | 'diario'
+  diaSemana     Int?     @map("dia_semana") // 1-7 (Lunes-Domingo) - Usado en 'semanal'
+  fechaEspecifica DateTime? @map("fecha_especifica") @db.Date // Usado en 'mensual' (solo día-mes) o 'diario' (fecha completa)
   horaInicio    String   @map("hora_inicio") @db.VarChar(5) // HH:MM formato 24h
   horaFin       String   @map("hora_fin") @db.VarChar(5) // HH:MM formato 24h
   horasObjetivo Decimal  @map("horas_objetivo") @db.Decimal(4, 2) // Ej: 8.00, 8.50
@@ -154,8 +159,10 @@ model HorarioLaboral {
 
   usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
-  @@unique([usuarioId, diaSemana])
+  @@unique([usuarioId, tipoHorario, diaSemana, fechaEspecifica], name: "unique_horario_config")
   @@index([usuarioId])
   @@index([activo])
+  @@index([tipoHorario])
+  @@index([fechaEspecifica])
   @@map("horarios_laborales")
 }

@@ -298,9 +298,10 @@ export const setSupervisorCampaigns = async (supervisorId, campañaIds) => {
 // HORARIOS LABORALES
 // =====================================================
 
-export const getHorariosUsuario = async (usuarioId) => {
+export const getHorariosUsuario = async (usuarioId, tipoHorario = null) => {
   try {
-    const response = await api.get(`/admin/horarios/${usuarioId}`);
+    const params = tipoHorario ? `?tipoHorario=${tipoHorario}` : '';
+    const response = await api.get(`/admin/horarios/${usuarioId}${params}`);
     return response.data;
   } catch (error) {
     console.error('Error al obtener horarios:', error);
@@ -308,9 +309,10 @@ export const getHorariosUsuario = async (usuarioId) => {
   }
 };
 
-export const upsertHorariosUsuario = async (usuarioId, horarios) => {
+export const upsertHorariosUsuario = async (usuarioId, payload) => {
   try {
-    const response = await api.put(`/admin/horarios/${usuarioId}`, { horarios });
+    // payload: { tipoHorario: 'semanal'|'mensual'|'diario', horarios: [...] }
+    const response = await api.put(`/admin/horarios/${usuarioId}`, payload);
     return response.data;
   } catch (error) {
     console.error('Error al actualizar horarios:', error);
@@ -318,9 +320,9 @@ export const upsertHorariosUsuario = async (usuarioId, horarios) => {
   }
 };
 
-export const deleteHorarioUsuario = async (usuarioId, diaSemana) => {
+export const deleteHorarioUsuario = async (usuarioId, horarioId) => {
   try {
-    const response = await api.delete(`/admin/horarios/${usuarioId}/${diaSemana}`);
+    const response = await api.delete(`/admin/horarios/${usuarioId}/${horarioId}`);
     return response.data;
   } catch (error) {
     console.error('Error al eliminar horario:', error);
