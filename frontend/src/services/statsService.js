@@ -103,27 +103,96 @@ export function exportToExcel(registros, filename = 'estadisticas', options = {}
     for (const [key, data] of Object.entries(stats)) {
       const { stats: s, user, name } = data;
       const label = user?.nombreCompleto || name || key;
+      
+      // Obtener horario laboral del usuario para el día correspondiente
+      let horarioIngreso = '-';
+      let horarioSalida = '-';
+      
+      if (s.firstEntry && user?.horariosLaborales) {
+        const fecha = new Date(s.firstEntry);
+        // JavaScript: 0=Domingo, 1=Lunes... convertir a formato DB (1=Lunes, 7=Domingo)
+        const diaSemanaJS = fecha.getDay(); // 0-6
+        const diaSemanaDB = diaSemanaJS === 0 ? 7 : diaSemanaJS; // 1-7
+        
+        const horarioDelDia = user.horariosLaborales.find(h => h.diaSemana === diaSemanaDB && h.activo);
+        if (horarioDelDia) {
+          horarioIngreso = horarioDelDia.horaInicio;
+          horarioSalida = horarioDelDia.horaFin;
+        }
+      }
+      
+      // Obtener fecha de inicio (del primer registro)
+      let fechaInicio = '-';
+      if (s.firstEntry) {
+        const fecha = new Date(s.firstEntry);
+        fechaInicio = fecha; // Mantener como Date para formato Excel
+      }
 
       summaryData.push({
         [groupBy === 'user' ? 'Usuario' : groupBy === 'campaign' ? 'Campaña' : 'Fecha']: label,
+        'Fecha Inicio': fechaInicio,
         'Tiempo Total (h)': Number(s.totalHours.toFixed(2)),
         'Tiempo Trabajado (h)': Number(s.workHours.toFixed(2)),
         'Porcentaje Trabajado (%)': Number(s.workPercentage.toFixed(2)),
         'Primera Entrada': s.firstEntry ? formatTime(s.firstEntry) : '-',
-        'Última Salida': s.lastExit ? formatTime(s.lastExit) : '-'
+        'Última Salida': s.lastExit ? formatTime(s.lastExit) : '-',
+        'Horario Ingreso': horarioIngreso,
+        'Horario Salida': horarioSalida
       });
     }
 
-    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+    const summarySheet = XLSX.utils.json_to_sheet(summaryData, { cellDates: true });
+    
+    // Aplicar formatos a las columnas
+    const range = XLSX.utils.decode_range(summarySheet['!ref']);
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+      // Columna B (Fecha Inicio) - formato de fecha
+      const cellRefFecha = XLSX.utils.encode_cell({ r: R, c: 1 });
+      if (summarySheet[cellRefFecha] && typeof summarySheet[cellRefFecha].v !== 'string') {
+        summarySheet[cellRefFecha].z = 'dd/mm/yyyy';
+      }
+      
+      // Columna F (Primera Entrada) ya es string formateado, no necesita cambio
+      
+      // Columna G (Última Salida) ya es string formateado, no necesita cambio
+      
+      // Columna H (Horario Ingreso) - formato HH:MM:SS si es time
+      const cellRefHorarioIng = XLSX.utils.encode_cell({ r: R, c: 7 });
+      if (summarySheet[cellRefHorarioIng] && summarySheet[cellRefHorarioIng].v !== '-') {
+        // Convertir HH:MM a fracción de día para Excel
+        const timeStr = summarySheet[cellRefHorarioIng].v;
+        if (timeStr.match(/^\d{2}:\d{2}$/)) {
+          const [hh, mm] = timeStr.split(':').map(Number);
+          summarySheet[cellRefHorarioIng].v = (hh + mm/60) / 24; // Fracción de día
+          summarySheet[cellRefHorarioIng].t = 'n'; // Tipo número
+          summarySheet[cellRefHorarioIng].z = 'hh:mm:ss';
+        }
+      }
+      
+      // Columna I (Horario Salida) - formato HH:MM:SS
+      const cellRefHorarioSal = XLSX.utils.encode_cell({ r: R, c: 8 });
+      if (summarySheet[cellRefHorarioSal] && summarySheet[cellRefHorarioSal].v !== '-') {
+        const timeStr = summarySheet[cellRefHorarioSal].v;
+        if (timeStr.match(/^\d{2}:\d{2}$/)) {
+          const [hh, mm] = timeStr.split(':').map(Number);
+          summarySheet[cellRefHorarioSal].v = (hh + mm/60) / 24;
+          summarySheet[cellRefHorarioSal].t = 'n';
+          summarySheet[cellRefHorarioSal].z = 'hh:mm:ss';
+        }
+      }
+    }
     
     // Ajustar ancho de columnas
     summarySheet['!cols'] = [
-      { wch: 25 }, // Nombre
+      { wch: 25 }, // Nombre/Usuario
+      { wch: 12 }, // Fecha Inicio
       { wch: 15 }, // Tiempo Total
       { wch: 18 }, // Tiempo Trabajado
       { wch: 20 }, // Porcentaje
       { wch: 15 }, // Primera Entrada
-      { wch: 15 }  // Última Salida
+      { wch: 15 }, // Última Salida
+      { wch: 15 }, // Horario Ingreso
+      { wch: 15 }  // Horario Salida
     ];
     
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen');

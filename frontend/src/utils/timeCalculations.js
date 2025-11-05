@@ -251,15 +251,17 @@ export function formatDate(date) {
 }
 
 /**
- * Formatea hora para display
+ * Formatea una fecha a hora legible con segundos
  * @param {string|Date} date - Fecha/hora
- * @returns {string} Hora formateada
+ * @returns {string} Hora formateada HH:MM:SS
  */
 export function formatTime(date) {
   if (!date) return '-';
   const d = new Date(date);
   return d.toLocaleTimeString('es-PE', { 
     hour: '2-digit', 
-    minute: '2-digit' 
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
   });
 }

@@ -162,6 +162,18 @@ export const getStats = async (req, res) => {
                 id: true,
                 nombre: true
               }
+            },
+            horariosLaborales: {
+              select: {
+                diaSemana: true,
+                horaInicio: true,
+                horaFin: true,
+                horasObjetivo: true,
+                activo: true
+              },
+              where: {
+                activo: true
+              }
             }
           }
         },
