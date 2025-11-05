@@ -48,10 +48,12 @@ async function main() {
       users.forEach(u => {
         const estado = u.estado ? '✅ Activo' : '❌ Inactivo';
         const email = u.correoElectronico || '(sin email)';
+        const dni = u.documentoIdentidad || '(sin DNI)';
         
         console.log(`
   👤 ${u.nombreCompleto}
      Usuario: ${u.nombreUsuario}
+     DNI: ${dni}
      Email: ${email}
      Campaña: ${u.campaña.nombre}
      Estado: ${estado}
