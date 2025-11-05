@@ -1,24 +1,112 @@
-import { useState, useEffect } from 'react';
-import { Clock, Save, X, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Clock, Save, X, AlertCircle, Calendar, CalendarDays, CalendarRange, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import adminService from '../services/adminService';
 
 const DIAS_SEMANA = [
-  { id: 1, nombre: 'Lunes', abrev: 'Lun' },
-  { id: 2, nombre: 'Martes', abrev: 'Mar' },
-  { id: 3, nombre: 'Miércoles', abrev: 'Mié' },
-  { id: 4, nombre: 'Jueves', abrev: 'Jue' },
-  { id: 5, nombre: 'Viernes', abrev: 'Vie' },
-  { id: 6, nombre: 'Sábado', abrev: 'Sáb' },
-  { id: 7, nombre: 'Domingo', abrev: 'Dom' }
+  { id: 1, nombre: 'Lunes' },
+  { id: 2, nombre: 'Martes' },
+  { id: 3, nombre: 'Miércoles' },
+  { id: 4, nombre: 'Jueves' },
+  { id: 5, nombre: 'Viernes' },
+  { id: 6, nombre: 'Sábado' },
+  { id: 7, nombre: 'Domingo' }
+];
+
+const TIPOS_HORARIO = [
+  {
+    value: 'semanal',
+    label: 'Horario Fijo Semanal',
+    icon: CalendarRange,
+    description: 'Mismo horario cada semana (Ej: Lun-Vie 8-5)'
+  },
+  {
+    value: 'mensual',
+    label: 'Horario Variable Mensual',
+    icon: CalendarDays,
+    description: 'Horarios que se repiten cada mes'
+  },
+  {
+    value: 'diario',
+    label: 'Horario Variable Diario',
+    icon: Calendar,
+    description: 'Horarios específicos por fecha'
+  }
 ];
 
 export default function HorariosManagement() {
   const [usuarios, setUsuarios] = useState([]);
   const [selectedUsuario, setSelectedUsuario] = useState(null);
+  const [tipoHorario, setTipoHorario] = useState('semanal');
   const [horarios, setHorarios] = useState({});
+  const [horariosVariables, setHorariosVariables] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const loadUsuarios = async () => {
+    try {
+      setLoading(true);
+      const data = await adminService.getUsuarios();
+      setUsuarios(data);
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error al cargar usuarios');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadHorarios = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await adminService.getHorariosUsuario(selectedUsuario, tipoHorario);
+      
+      if (tipoHorario === 'semanal') {
+        // Procesar horarios semanales
+        const horariosObj = {};
+        if (response.data && Array.isArray(response.data)) {
+          response.data.forEach(h => {
+            horariosObj[h.diaSemana] = {
+              horaInicio: h.horaInicio,
+              horaFin: h.horaFin,
+              horasObjetivo: parseFloat(h.horasObjetivo) || 0,
+              activo: h.activo
+            };
+          });
+        }
+        
+        // Completar días faltantes con valores por defecto
+        DIAS_SEMANA.forEach(dia => {
+          if (!horariosObj[dia.id]) {
+            horariosObj[dia.id] = {
+              horaInicio: '08:00',
+              horaFin: '17:00',
+              horasObjetivo: 8.0,
+              activo: dia.id <= 5 // Lun-Vie activos por defecto
+            };
+          }
+        });
+        
+        setHorarios(horariosObj);
+      } else {
+        // Procesar horarios variables (mensual/diario)
+        const horariosArray = (response.data || []).map(h => ({
+          id: h.id,
+          fechaEspecifica: h.fechaEspecifica ? h.fechaEspecifica.split('T')[0] : '',
+          horaInicio: h.horaInicio,
+          horaFin: h.horaFin,
+          horasObjetivo: parseFloat(h.horasObjetivo) || 0,
+          activo: h.activo
+        }));
+        setHorariosVariables(horariosArray);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error al cargar horarios');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedUsuario, tipoHorario]);
 
   useEffect(() => {
     loadUsuarios();
@@ -28,60 +116,7 @@ export default function HorariosManagement() {
     if (selectedUsuario) {
       loadHorarios();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUsuario]);
-
-  const loadUsuarios = async () => {
-    try {
-      setLoading(true);
-      const data = await adminService.getUsuarios();
-      setUsuarios(data);
-    } catch (error) {
-      console.error('Error al cargar usuarios:', error);
-      toast.error('Error al cargar usuarios');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadHorarios = async () => {
-    try {
-      setLoading(true);
-      const response = await adminService.getHorariosUsuario(selectedUsuario);
-      
-      // Convertir array a objeto indexado por diaSemana
-      const horariosObj = {};
-      if (response.data && Array.isArray(response.data)) {
-        response.data.forEach(h => {
-          horariosObj[h.diaSemana] = {
-            horaInicio: h.horaInicio,
-            horaFin: h.horaFin,
-            horasObjetivo: parseFloat(h.horasObjetivo) || 0,
-            activo: h.activo
-          };
-        });
-      }
-      
-      // Inicializar días que no tienen horario con valores por defecto
-      DIAS_SEMANA.forEach(dia => {
-        if (!horariosObj[dia.id]) {
-          horariosObj[dia.id] = {
-            horaInicio: '08:00',
-            horaFin: '17:00',
-            horasObjetivo: 8.0,
-            activo: dia.id <= 5 // Lun-Vie activos por defecto
-          };
-        }
-      });
-      
-      setHorarios(horariosObj);
-    } catch (error) {
-      console.error('Error al cargar horarios:', error);
-      toast.error('Error al cargar horarios');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [selectedUsuario, loadHorarios]);
 
   const handleHorarioChange = (diaSemana, field, value) => {
     setHorarios(prev => ({
@@ -93,6 +128,32 @@ export default function HorariosManagement() {
     }));
   };
 
+  const handleVariableChange = (index, field, value) => {
+    setHorariosVariables(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const addVariableHorario = () => {
+    setHorariosVariables(prev => [
+      ...prev,
+      {
+        id: null,
+        fechaEspecifica: '',
+        horaInicio: '08:00',
+        horaFin: '17:00',
+        horasObjetivo: 8.0,
+        activo: true
+      }
+    ]);
+  };
+
+  const removeVariableHorario = (index) => {
+    setHorariosVariables(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSave = async () => {
     if (!selectedUsuario) {
       toast.error('Selecciona un usuario');
@@ -102,20 +163,45 @@ export default function HorariosManagement() {
     try {
       setSaving(true);
       
-      // Convertir objeto a array para el backend
-      const horariosArray = Object.entries(horarios).map(([diaSemana, data]) => ({
-        diaSemana: parseInt(diaSemana),
-        horaInicio: data.horaInicio,
-        horaFin: data.horaFin,
-        horasObjetivo: parseFloat(data.horasObjetivo),
-        activo: data.activo
-      }));
+      let horariosArray;
+      
+      if (tipoHorario === 'semanal') {
+        horariosArray = Object.entries(horarios).map(([diaSemana, data]) => ({
+          diaSemana: parseInt(diaSemana),
+          horaInicio: data.horaInicio,
+          horaFin: data.horaFin,
+          horasObjetivo: parseFloat(data.horasObjetivo),
+          activo: data.activo
+        }));
+      } else {
+        // Validar que todas las fechas estén completas
+        for (const h of horariosVariables) {
+          if (!h.fechaEspecifica) {
+            toast.error('Todas las fechas deben estar completas');
+            setSaving(false);
+            return;
+          }
+        }
+        
+        horariosArray = horariosVariables.map(h => ({
+          fechaEspecifica: h.fechaEspecifica,
+          horaInicio: h.horaInicio,
+          horaFin: h.horaFin,
+          horasObjetivo: parseFloat(h.horasObjetivo),
+          activo: h.activo
+        }));
+      }
 
-      await adminService.upsertHorariosUsuario(selectedUsuario, horariosArray);
+      await adminService.upsertHorariosUsuario(selectedUsuario, {
+        tipoHorario,
+        horarios: horariosArray
+      });
+      
       toast.success('Horarios guardados correctamente');
+      await loadHorarios();
     } catch (error) {
-      console.error('Error al guardar horarios:', error);
-      toast.error('Error al guardar horarios');
+      console.error('Error:', error);
+      toast.error(error.response?.data?.error || 'Error al guardar horarios');
     } finally {
       setSaving(false);
     }
@@ -123,6 +209,7 @@ export default function HorariosManagement() {
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Clock className="w-6 h-6 text-primary-600" />
@@ -154,6 +241,47 @@ export default function HorariosManagement() {
 
       {selectedUsuario && (
         <>
+          {/* Selector de Tipo de Horario */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-neutral-700 mb-3">
+              Tipo de Horario
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {TIPOS_HORARIO.map((tipo) => {
+                const Icon = tipo.icon;
+                const isSelected = tipoHorario === tipo.value;
+                
+                return (
+                  <button
+                    key={tipo.value}
+                    onClick={() => setTipoHorario(tipo.value)}
+                    className={`p-4 border-2 rounded-lg transition-all text-left ${
+                      isSelected
+                        ? 'border-primary-600 bg-primary-50'
+                        : 'border-neutral-200 hover:border-neutral-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Icon className={`w-5 h-5 mt-0.5 ${
+                        isSelected ? 'text-primary-600' : 'text-neutral-600'
+                      }`} />
+                      <div className="flex-1">
+                        <div className={`font-semibold text-sm mb-1 ${
+                          isSelected ? 'text-primary-900' : 'text-neutral-900'
+                        }`}>
+                          {tipo.label}
+                        </div>
+                        <div className="text-xs text-neutral-600">
+                          {tipo.description}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Info Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
@@ -161,94 +289,197 @@ export default function HorariosManagement() {
               <div className="flex-1 text-sm text-blue-800">
                 <p className="font-semibold mb-1">Configuración de Horarios</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li><strong>Hora Inicio/Fin:</strong> Define el rango de horario laboral del día</li>
-                  <li><strong>Horas Objetivo:</strong> Horas que debe trabajar ese día (ej: 8.00)</li>
-                  <li><strong>Activo:</strong> Si está desactivado, ese día no se considerará para reportes</li>
-                  <li><strong>Límite:</strong> Las actividades no contarán después de la hora fin configurada</li>
+                  <li><strong>Semanal:</strong> Horario fijo que se repite cada semana</li>
+                  <li><strong>Mensual:</strong> Horarios variables que se repiten cada mes (ej: día 15 de cada mes)</li>
+                  <li><strong>Diario:</strong> Horarios específicos para fechas puntuales (ej: 25/12/2025)</li>
                 </ul>
               </div>
             </div>
           </div>
 
-          {/* Tabla de Horarios */}
+          {/* Contenido según tipo */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-neutral-200">
-                <thead className="bg-neutral-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                      Día
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                      Hora Inicio
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                      Hora Fin
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                      Horas Objetivo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                      Activo
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-neutral-200">
-                  {DIAS_SEMANA.map(dia => {
-                    const horarioDia = horarios[dia.id] || {};
-                    return (
-                      <tr key={dia.id} className={!horarioDia.activo ? 'bg-neutral-50 opacity-60' : ''}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="font-medium text-neutral-900">{dia.nombre}</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="time"
-                            value={horarioDia.horaInicio || '08:00'}
-                            onChange={(e) => handleHorarioChange(dia.id, 'horaInicio', e.target.value)}
-                            className="px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                            disabled={!horarioDia.activo}
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="time"
-                            value={horarioDia.horaFin || '17:00'}
-                            onChange={(e) => handleHorarioChange(dia.id, 'horaFin', e.target.value)}
-                            className="px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                            disabled={!horarioDia.activo}
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="number"
-                            step="0.5"
-                            min="0"
-                            max="24"
-                            value={horarioDia.horasObjetivo || 8}
-                            onChange={(e) => handleHorarioChange(dia.id, 'horasObjetivo', parseFloat(e.target.value))}
-                            className="w-20 px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                            disabled={!horarioDia.activo}
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={horarioDia.activo || false}
-                            onChange={(e) => handleHorarioChange(dia.id, 'activo', e.target.checked)}
-                            className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
-                          />
-                        </td>
+            <>
+              {/* Tabla para horarios semanales */}
+              {tipoHorario === 'semanal' && (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-neutral-200">
+                    <thead className="bg-neutral-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Día</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Hora Inicio</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Hora Fin</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Horas Objetivo</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Activo</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-neutral-200">
+                      {DIAS_SEMANA.map(dia => {
+                        const horarioDia = horarios[dia.id] || {};
+                        const isActive = horarioDia.activo !== false;
+                        
+                        return (
+                          <tr
+                            key={dia.id}
+                            className={!isActive ? 'bg-neutral-50 opacity-60' : ''}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="font-medium text-neutral-900">{dia.nombre}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="time"
+                                value={horarioDia.horaInicio || '08:00'}
+                                onChange={(e) => handleHorarioChange(dia.id, 'horaInicio', e.target.value)}
+                                className="px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                                disabled={!isActive}
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="time"
+                                value={horarioDia.horaFin || '17:00'}
+                                onChange={(e) => handleHorarioChange(dia.id, 'horaFin', e.target.value)}
+                                className="px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                                disabled={!isActive}
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                max="24"
+                                value={horarioDia.horasObjetivo || 8}
+                                onChange={(e) => handleHorarioChange(dia.id, 'horasObjetivo', parseFloat(e.target.value))}
+                                className="w-20 px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                                disabled={!isActive}
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={isActive}
+                                onChange={(e) => handleHorarioChange(dia.id, 'activo', e.target.checked)}
+                                className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Tabla para horarios variables (mensual/diario) */}
+              {(tipoHorario === 'mensual' || tipoHorario === 'diario') && (
+                <div className="space-y-4">
+                  {horariosVariables.length === 0 ? (
+                    <div className="text-center py-8 text-neutral-500">
+                      No hay horarios configurados. Haz clic en "Agregar Horario".
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-neutral-200">
+                        <thead className="bg-neutral-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
+                              {tipoHorario === 'mensual' ? 'Día del Mes' : 'Fecha'}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Hora Inicio</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Hora Fin</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Horas</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Activo</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-neutral-200">
+                          {horariosVariables.map((h, index) => {
+                            const isActive = h.activo !== false;
+                            
+                            return (
+                              <tr
+                                key={index}
+                                className={!isActive ? 'bg-neutral-50 opacity-60' : ''}
+                              >
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <input
+                                    type="date"
+                                    value={h.fechaEspecifica}
+                                    onChange={(e) => handleVariableChange(index, 'fechaEspecifica', e.target.value)}
+                                    className="px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                                  />
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <input
+                                    type="time"
+                                    value={h.horaInicio}
+                                    onChange={(e) => handleVariableChange(index, 'horaInicio', e.target.value)}
+                                    className="px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                                    disabled={!isActive}
+                                  />
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <input
+                                    type="time"
+                                    value={h.horaFin}
+                                    onChange={(e) => handleVariableChange(index, 'horaFin', e.target.value)}
+                                    className="px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                                    disabled={!isActive}
+                                  />
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    max="24"
+                                    value={h.horasObjetivo}
+                                    onChange={(e) => handleVariableChange(index, 'horasObjetivo', parseFloat(e.target.value))}
+                                    className="w-20 px-3 py-1.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                                    disabled={!isActive}
+                                  />
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <input
+                                    type="checkbox"
+                                    checked={isActive}
+                                    onChange={(e) => handleVariableChange(index, 'activo', e.target.checked)}
+                                    className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                                  />
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                                  <button
+                                    onClick={() => removeVariableHorario(index)}
+                                    className="text-red-600 hover:text-red-800 p-2"
+                                    title="Eliminar"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  
+                  <button
+                    onClick={addVariableHorario}
+                    className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Agregar Horario
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           {/* Botones de Acción */}
