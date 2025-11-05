@@ -489,11 +489,11 @@ export const getActiveAsesores = async (req, res) => {
         campañaNombre: asesor.campaña?.nombre || 'Sin campaña',
         actividadActual: actividadActual
           ? {
-              nombreActividad: actividadActual.actividad.nombreActividad,
-              duracionActual: actividadActual.horaInicio
-                ? Math.floor((Date.now() - new Date(actividadActual.horaInicio).getTime()) / 1000)
-                : 0
-            }
+            nombreActividad: actividadActual.actividad.nombreActividad,
+            duracionActual: actividadActual.horaInicio
+              ? Math.floor((Date.now() - new Date(actividadActual.horaInicio).getTime()) / 1000)
+              : 0
+          }
           : null,
         tiempoTotal,
         tiempoProductivo,

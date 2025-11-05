@@ -10,12 +10,12 @@ import { generateToken } from '../utils/jwt.js';
 export const login = async (req, res) => {
   try {
   // Normalize incoming fields: support spanish keys and common english aliases
-  const nombreUsuario = req.body.nombreUsuario ?? req.body.username ?? req.body.user ?? req.body.email;
-  const contraseña = req.body.contraseña ?? req.body.password ?? req.body.pass;
-  // Minimal logging only in development
-  if (process.env.NODE_ENV === 'development') {
-    console.info('👤 Intento de login para:', nombreUsuario);
-  }
+    const nombreUsuario = req.body.nombreUsuario ?? req.body.username ?? req.body.user ?? req.body.email;
+    const contraseña = req.body.contraseña ?? req.body.password ?? req.body.pass;
+    // Minimal logging only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.info('👤 Intento de login para:', nombreUsuario);
+    }
 
     // Validar que se enviaron los datos
     if (!nombreUsuario || !contraseña) {
@@ -26,7 +26,7 @@ export const login = async (req, res) => {
       });
     }
 
-  if (process.env.NODE_ENV === 'development') console.debug('🔍 Buscando usuario en la base de datos...');
+    if (process.env.NODE_ENV === 'development') console.debug('🔍 Buscando usuario en la base de datos...');
     
     // Buscar usuario en la base de datos
     const usuario = await prisma.usuario.findUnique({
@@ -37,7 +37,7 @@ export const login = async (req, res) => {
       }
     });
     
-  if (process.env.NODE_ENV === 'development') console.debug('📊 Resultado de búsqueda:', usuario ? 'Usuario encontrado' : 'Usuario no encontrado');
+    if (process.env.NODE_ENV === 'development') console.debug('📊 Resultado de búsqueda:', usuario ? 'Usuario encontrado' : 'Usuario no encontrado');
 
     // Verificar que el usuario existe
     if (!usuario) {

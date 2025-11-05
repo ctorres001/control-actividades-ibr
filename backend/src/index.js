@@ -65,21 +65,21 @@ const allowedOrigins = corsOriginEnv.split(',').map((o) => o.trim()).filter(Bool
 // En desarrollo, ser más permisivo con CORS
 const corsOptions = process.env.NODE_ENV === 'development'
   ? {
-      // Permitir todos los orígenes en desarrollo
-      origin: true,
-      credentials: true
-    }
+    // Permitir todos los orígenes en desarrollo
+    origin: true,
+    credentials: true
+  }
   : {
-      // En producción, usar la lista de orígenes permitidos
-      origin: function (origin, callback) {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1) {
-          return callback(null, true);
-        }
-        return callback(new Error('CORS policy: Origin not allowed'));
-      },
-      credentials: true
-    };
+    // En producción, usar la lista de orígenes permitidos
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        return callback(null, true);
+      }
+      return callback(new Error('CORS policy: Origin not allowed'));
+    },
+    credentials: true
+  };
 
 app.use(cors(corsOptions));
 

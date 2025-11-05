@@ -216,8 +216,8 @@ export const startActivity = async (req, res) => {
       });
     }
 
-  // Crear nuevo registro
-  // Fecha ya calculada arriba para reutilizar en validaciones
+    // Crear nuevo registro
+    // Fecha ya calculada arriba para reutilizar en validaciones
     
     const nuevoRegistro = await prisma.registroActividad.create({
       data: {
@@ -311,13 +311,13 @@ export const stopActivity = async (req, res) => {
     // Volver a leer el registro si se actualizó para incluir relaciones
     const registroActualizado = updatedCount.count > 0
       ? await prisma.registroActividad.findUnique({
-          where: { id: registroActual.id },
-          include: { actividad: true, subactividad: true }
-        })
+        where: { id: registroActual.id },
+        include: { actividad: true, subactividad: true }
+      })
       : await prisma.registroActividad.findUnique({
-          where: { id: registroActual.id },
-          include: { actividad: true, subactividad: true }
-        });
+        where: { id: registroActual.id },
+        include: { actividad: true, subactividad: true }
+      });
 
     console.log(`⏹️ Actividad detenida: Usuario ${usuarioId} - Duración: ${duracionSeg}s`);
 

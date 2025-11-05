@@ -24,13 +24,13 @@ const getUsers = async (req, res) => {
       return res.status(403).json({ error: 'No autorizado' });
     }
 
-  const { rolId, campañaId, estado } = req.query;
+    const { rolId, campañaId, estado } = req.query;
 
     // Construir filtros con validación
     const where = {};
     if (rolId) where.rolId = parseIntOptional(rolId, 'rolId');
     if (campañaId) where.campañaId = parseIntOptional(campañaId, 'campañaId');
-  if (estado !== undefined) where.estado = toBooleanEstado(estado);
+    if (estado !== undefined) where.estado = toBooleanEstado(estado);
 
     const usuarios = await prisma.usuario.findMany({
       where,
