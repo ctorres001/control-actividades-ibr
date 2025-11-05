@@ -4,6 +4,17 @@ import bcrypt from 'bcrypt';
 import { validatePassword, getPasswordRequirements } from '../utils/passwordValidator.js';
 import { parseIdSafe, parseIntOptional } from '../utils/validation.js';
 
+// Normaliza valores de estado provenientes del frontend (checkbox/string)
+function toBooleanEstado(val) {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'number') return val !== 0;
+  if (typeof val === 'string') {
+    const v = val.trim().toLowerCase();
+    return v === 'activo' || v === 'true' || v === '1' || v === 'on' || v === 'si' || v === 'sí';
+  }
+  return false;
+}
+
 // ===== USUARIOS =====
 
 const getUsers = async (req, res) => {
@@ -13,13 +24,13 @@ const getUsers = async (req, res) => {
       return res.status(403).json({ error: 'No autorizado' });
     }
 
-    const { rolId, campañaId, estado } = req.query;
+  const { rolId, campañaId, estado } = req.query;
 
     // Construir filtros con validación
     const where = {};
     if (rolId) where.rolId = parseIntOptional(rolId, 'rolId');
     if (campañaId) where.campañaId = parseIntOptional(campañaId, 'campañaId');
-    if (estado) where.estado = estado === 'Activo';
+  if (estado !== undefined) where.estado = toBooleanEstado(estado);
 
     const usuarios = await prisma.usuario.findMany({
       where,
@@ -48,7 +59,7 @@ const createUser = async (req, res) => {
       return res.status(403).json({ error: 'No autorizado' });
     }
 
-    const { nombreUsuario, nombreCompleto, correoElectronico, contraseña, rolId, campañaId, estado } = req.body;
+  const { nombreUsuario, nombreCompleto, correoElectronico, contraseña, rolId, campañaId, estado } = req.body;
 
     // Validar campos requeridos
     if (!nombreUsuario || !nombreCompleto || !contraseña || !rolId) {
@@ -86,7 +97,7 @@ const createUser = async (req, res) => {
         contraseña: hashedPassword,
         rolId: parseIntOptional(rolId, 'rolId'),
         campañaId: campañaId ? parseInt(campañaId) : null,
-        estado: estado === 'Activo'
+        estado: toBooleanEstado(estado)
       },
       include: {
         rol: {
@@ -115,7 +126,7 @@ const updateUser = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { nombreUsuario, nombreCompleto, correoElectronico, contraseña, rolId, campañaId, estado } = req.body;
+  const { nombreUsuario, nombreCompleto, correoElectronico, contraseña, rolId, campañaId, estado } = req.body;
 
     // Verificar si el usuario existe
     const existingUser = await prisma.usuario.findUnique({
@@ -133,7 +144,7 @@ const updateUser = async (req, res) => {
       correoElectronico,
       rolId: parseIntOptional(rolId, 'rolId'),
       campañaId: campañaId ? parseInt(campañaId) : null,
-      estado: estado === 'Activo'
+      estado: toBooleanEstado(estado)
     };
 
     // Si se proporciona contraseña, validarla y hashearla
