@@ -125,7 +125,7 @@ export default function AdminDashboard() {
     // { id: 'activities', label: 'Actividades', icon: <Activity className="w-5 h-5" /> }, // ⚠️ OCULTO: No modificar para evitar afectar la app
     { id: 'campaigns', label: 'Campañas', icon: <Target className="w-5 h-5" /> },
     { id: 'subactivities', label: 'Subactividades', icon: <ListTree className="w-5 h-5" /> },
-    { id: 'roles', label: 'Roles', icon: <Shield className="w-5 h-5" /> },
+    // { id: 'roles', label: 'Roles', icon: <Shield className="w-5 h-5" /> }, // ⚠️ OCULTO: Los roles son núcleo del sistema (Asesor, Supervisor, Administrador) y no deben modificarse
     { id: 'horarios', label: 'Horarios', icon: <Clock className="w-5 h-5" /> }
     // { id: 'export', label: 'Exportar', icon: <FileSpreadsheet className="w-5 h-5" /> } // ⚠️ OCULTO: Exportación disponible desde botón en vista de estadísticas
   ];
@@ -363,8 +363,8 @@ export default function AdminDashboard() {
   {/* Tab de Gestión de Subactividades */}
   {activeTab === 'subactivities' && <SubactivityManagement />}
 
-  {/* Tab de Gestión de Roles */}
-  {activeTab === 'roles' && <RoleManagement />}
+  {/* Tab de Gestión de Roles - OCULTO: Los roles núcleo (Asesor, Supervisor, Administrador) no deben modificarse */}
+  {/* {activeTab === 'roles' && <RoleManagement />} */}
 
   {/* Tab de Gestión de Horarios */}
   {activeTab === 'horarios' && <HorariosManagement />}
