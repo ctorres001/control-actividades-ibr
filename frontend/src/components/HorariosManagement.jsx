@@ -34,6 +34,11 @@ const TIPOS_HORARIO = [
   }
 ];
 
+// Mostrar solo el tipo semanal por ahora (mensual/diario ocultos temporalmente)
+const TIPOS_HORARIO_VISIBLES = TIPOS_HORARIO.filter(t => t.value === 'semanal');
+const SHOW_VARIABLE_TYPES = false; // bandera para reactivar mensual/diario en el futuro
+const SHOW_VARIABLES_INFO = false; // bandera para mostrar info de mensual/diario
+
 export default function HorariosManagement() {
   const [usuarios, setUsuarios] = useState([]);
   const [selectedUsuario, setSelectedUsuario] = useState(null);
@@ -111,6 +116,13 @@ export default function HorariosManagement() {
   useEffect(() => {
     loadUsuarios();
   }, []);
+
+  useEffect(() => {
+    // Forzar tipo semanal mientras los otros tipos estén ocultos
+    if (tipoHorario !== 'semanal') {
+      setTipoHorario('semanal');
+    }
+  }, [tipoHorario]);
 
   useEffect(() => {
     if (selectedUsuario) {
@@ -241,13 +253,13 @@ export default function HorariosManagement() {
 
       {selectedUsuario && (
         <>
-          {/* Selector de Tipo de Horario */}
+          {/* Selector de Tipo de Horario (solo semanal visible por ahora) */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-neutral-700 mb-3">
               Tipo de Horario
             </label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {TIPOS_HORARIO.map((tipo) => {
+              {TIPOS_HORARIO_VISIBLES.map((tipo) => {
                 const Icon = tipo.icon;
                 const isSelected = tipoHorario === tipo.value;
                 
@@ -282,7 +294,7 @@ export default function HorariosManagement() {
             </div>
           </div>
 
-          {/* Info Box */}
+          {/* Info Box (solo mostrar semanal por ahora) */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -290,8 +302,12 @@ export default function HorariosManagement() {
                 <p className="font-semibold mb-1">Configuración de Horarios</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li><strong>Semanal:</strong> Horario fijo que se repite cada semana</li>
-                  <li><strong>Mensual:</strong> Horarios variables que se repiten cada mes (ej: día 15 de cada mes)</li>
-                  <li><strong>Diario:</strong> Horarios específicos para fechas puntuales (ej: 25/12/2025)</li>
+                  {SHOW_VARIABLES_INFO && (
+                    <>
+                      <li><strong>Mensual:</strong> Horarios variables que se repiten cada mes (ej: día 15 de cada mes)</li>
+                      <li><strong>Diario:</strong> Horarios específicos para fechas puntuales (ej: 25/12/2025)</li>
+                    </>
+                  )}
                 </ul>
               </div>
             </div>
@@ -376,8 +392,8 @@ export default function HorariosManagement() {
                 </div>
               )}
 
-              {/* Tabla para horarios variables (mensual/diario) */}
-              {(tipoHorario === 'mensual' || tipoHorario === 'diario') && (
+              {/* Tabla para horarios variables (mensual/diario) oculto por ahora */}
+              {SHOW_VARIABLE_TYPES && (tipoHorario === 'mensual' || tipoHorario === 'diario') && (
                 <div className="space-y-4">
                   {horariosVariables.length === 0 ? (
                     <div className="text-center py-8 text-neutral-500">
