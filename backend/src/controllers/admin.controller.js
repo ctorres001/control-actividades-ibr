@@ -59,7 +59,7 @@ const createUser = async (req, res) => {
       return res.status(403).json({ error: 'No autorizado' });
     }
 
-  const { nombreUsuario, nombreCompleto, correoElectronico, contraseña, rolId, campañaId, estado } = req.body;
+    const { nombreUsuario, nombreCompleto, correoElectronico, documentoIdentidad, contraseña, rolId, campañaId, estado } = req.body;
 
     // Validar campos requeridos
     if (!nombreUsuario || !nombreCompleto || !contraseña || !rolId) {
@@ -88,12 +88,18 @@ const createUser = async (req, res) => {
     // Hash de la contraseña
     const hashedPassword = await bcrypt.hash(contraseña, 10);
 
+    // Normalizar DNI: string o null si vacío
+    const docIdent = (documentoIdentidad && String(documentoIdentidad).trim() !== '')
+      ? String(documentoIdentidad).trim()
+      : null;
+
     // Crear usuario
     const nuevoUsuario = await prisma.usuario.create({
       data: {
         nombreUsuario,
         nombreCompleto,
         correoElectronico,
+        documentoIdentidad: docIdent,
         contraseña: hashedPassword,
         rolId: parseIntOptional(rolId, 'rolId'),
         campañaId: campañaId ? parseInt(campañaId) : null,
@@ -126,7 +132,7 @@ const updateUser = async (req, res) => {
     }
 
     const { id } = req.params;
-  const { nombreUsuario, nombreCompleto, correoElectronico, contraseña, rolId, campañaId, estado } = req.body;
+    const { nombreUsuario, nombreCompleto, correoElectronico, documentoIdentidad, contraseña, rolId, campañaId, estado } = req.body;
 
     // Verificar si el usuario existe
     const existingUser = await prisma.usuario.findUnique({
@@ -142,6 +148,9 @@ const updateUser = async (req, res) => {
       nombreUsuario,
       nombreCompleto,
       correoElectronico,
+      documentoIdentidad: (documentoIdentidad && String(documentoIdentidad).trim() !== '')
+        ? String(documentoIdentidad).trim()
+        : null,
       rolId: parseIntOptional(rolId, 'rolId'),
       campañaId: campañaId ? parseInt(campañaId) : null,
       estado: toBooleanEstado(estado)

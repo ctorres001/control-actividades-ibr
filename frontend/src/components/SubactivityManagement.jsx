@@ -5,6 +5,9 @@ import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
 import { getActividades, getSubactividades, createSubactividad, updateSubactividad, deleteSubactividad, toggleSubactividadStatus } from '../services/adminService';
 
+// 🔒 Actividades del sistema que NO deben tener subactividades
+const ACTIVIDADES_SISTEMA = ['Ingreso', 'Salida', 'Break Salida', 'Regreso Break'];
+
 export default function SubactivityManagement() {
   const [activities, setActivities] = useState([]);
   const [subs, setSubs] = useState([]);
@@ -14,6 +17,12 @@ export default function SubactivityManagement() {
   const [showDelete, setShowDelete] = useState(false);
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({ actividadId: '', nombreSubactividad: '', descripcion: '', orden: 0, activo: true });
+
+  // Filtrar actividades de jornada (excluir las del sistema)
+  const actividadesJornada = useMemo(() => 
+    activities.filter(a => !ACTIVIDADES_SISTEMA.includes(a.nombreActividad)),
+    [activities]
+  );
 
   const load = async () => {
     try {
@@ -33,7 +42,7 @@ export default function SubactivityManagement() {
 
   const onCreate = () => {
     setSelected(null);
-    setForm({ actividadId: filterActivity || (activities[0]?.id || ''), nombreSubactividad: '', descripcion: '', orden: 0, activo: true });
+    setForm({ actividadId: filterActivity || (actividadesJornada[0]?.id || ''), nombreSubactividad: '', descripcion: '', orden: 0, activo: true });
     setShowModal(true);
   };
 
@@ -127,8 +136,8 @@ export default function SubactivityManagement() {
         </div>
         <div className="md:col-span-2">
           <select value={filterActivity} onChange={(e)=>setFilterActivity(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
-            <option value="">Todas las actividades</option>
-            {activities.sort((a,b)=>a.orden-b.orden).map(a => (
+            <option value="">Todas las actividades de jornada</option>
+            {actividadesJornada.sort((a,b)=>a.orden-b.orden).map(a => (
               <option key={a.id} value={a.id}>{a.nombreActividad}</option>
             ))}
           </select>
@@ -183,7 +192,7 @@ export default function SubactivityManagement() {
             <label className="block text-sm font-medium text-neutral-700 mb-1">Actividad</label>
             <select value={form.actividadId} onChange={(e)=>setForm({...form, actividadId: e.target.value})} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
               <option value="">Seleccionar...</option>
-              {activities.sort((a,b)=>a.orden-b.orden).map(a => (
+              {actividadesJornada.sort((a,b)=>a.orden-b.orden).map(a => (
                 <option key={a.id} value={a.id}>{a.nombreActividad}</option>
               ))}
             </select>
