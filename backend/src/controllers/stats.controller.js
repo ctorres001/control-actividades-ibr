@@ -170,6 +170,12 @@ export const getStats = async (req, res) => {
             id: true,
             nombreActividad: true
           }
+        },
+        subactividad: {
+          select: {
+            id: true,
+            nombreSubactividad: true
+          }
         }
       },
       orderBy: [

@@ -93,8 +93,9 @@ export const AuthProvider = ({ children }) => {
       console.error('Error en logout:', error);
     } finally {
       setUser(null);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // Asegurar limpieza de sesión (sessionStorage)
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       toast.success('Sesión cerrada correctamente', { id: 'logout-success' });
     }
   };
