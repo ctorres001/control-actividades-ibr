@@ -7,6 +7,21 @@
 
 ## 🔴 VULNERABILIDADES CRÍTICAS (Corregidas)
 
+### (Nuevo) Exposición de credenciales en archivo plano ✅ ELIMINADO
+**Archivo**: `backend/postgresql-config.json` (eliminado)  
+**Riesgo**: CRÍTICO  
+**Impacto**: Contraseña de base de datos expuesta en repositorio.
+
+**Acción aplicada (2025-11-21)**:
+- ✅ Archivo eliminado del código fuente.
+- ✅ Se recomienda ROTAR inmediatamente la contraseña expuesta.
+- ✅ Centralizar credenciales únicamente vía variable `DATABASE_URL` en entorno.
+
+**Recomendaciones adicionales**:
+- Usar gestor de secretos (Railway / Vercel / Doppler / Vault).
+- Agregar `.env.example` sin valores sensibles.
+- Implementar escaneo automatizado para evitar commits con patrones de credenciales.
+
 ### 1. JWT_SECRET sin validación ✅ CORREGIDO
 **Archivo**: `backend/src/utils/jwt.js`  
 **Riesgo**: CRÍTICO  
@@ -332,6 +347,6 @@ En caso de detectar una vulnerabilidad:
 
 ---
 
-**Última actualización**: 2025-11-03  
+**Última actualización**: 2025-11-21  
 **Responsable**: Equipo de Desarrollo  
 **Próxima revisión**: 2025-12-03
