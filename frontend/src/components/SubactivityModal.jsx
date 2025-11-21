@@ -6,6 +6,7 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
   const [selected, setSelected] = useState(null);
   const [clientRef, setClientRef] = useState('');
   const [comment, setComment] = useState('');
+  const [error, setError] = useState(''); // Nuevo estado para manejar errores
 
   useEffect(() => {
     let mounted = true;
@@ -22,7 +23,6 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
         if (mounted) {
           setSubactivities([]);
           setLoading(false);
-          // Mostrar error al usuario
           if (onCancel) {
             setTimeout(() => {
               onCancel();
@@ -35,12 +35,25 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
   }, [activity, loadSubactivities, onCancel]);
 
   const handleConfirm = () => {
+    if (!clientRef.trim()) {
+      setError('El campo ID Cliente / Referencia es obligatorio.');
+      return;
+    }
+
+    setError(''); // Limpiar errores si todo está bien
     onConfirm({ 
       subactivityId: selected, 
       subactivityName: subactivities.find(s => s.id === selected)?.nombreSubactividad || subactivities.find(s => s.id === selected)?.nombre_subactividad, 
-      idClienteReferencia: clientRef.trim() || null,
+      idClienteReferencia: clientRef.trim(),
       resumenBreve: comment.trim() || null
     });
+  };
+
+  const handleClientRefChange = (e) => {
+    const value = e.target.value;
+    if (/^\d*$/.test(value)) { // Validar solo números
+      setClientRef(value);
+    }
   };
 
   return (
@@ -76,10 +89,11 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
               <input 
                 className="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                 value={clientRef} 
-                onChange={(e) => setClientRef(e.target.value)} 
-                placeholder="Ej: CLI-0003" 
+                onChange={handleClientRefChange} 
+                placeholder="Ej: 12345" 
                 maxLength={100}
               />
+              {error && <p className="text-sm text-red-500 mt-1">{error}</p>} {/* Mostrar error si existe */}
             </label>
 
             <label>
