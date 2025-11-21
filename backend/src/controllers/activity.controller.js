@@ -173,6 +173,28 @@ export const startActivity = async (req, res) => {
       }
     }
 
+    // ✅ Validación obligatoria del ID Cliente / Referencia cuando se registra una subactividad
+    // (El formulario modal exige este campo, reforzamos en backend para garantizar integridad)
+    let idClienteReferenciaNormalizado = null;
+    if (subactividadId) {
+      const rawIdRef = (idClienteReferencia ?? '').toString().trim();
+      if (!rawIdRef) {
+        return res.status(400).json({
+          success: false,
+          error: 'El campo idClienteReferencia es obligatorio cuando se selecciona una subactividad.',
+          code: 'ID_CLIENTE_REFERENCIA_REQUIRED'
+        });
+      }
+      if (!/^\d+$/.test(rawIdRef)) {
+        return res.status(400).json({
+          success: false,
+          error: 'El campo idClienteReferencia debe contener solo dígitos.',
+          code: 'ID_CLIENTE_REFERENCIA_INVALID'
+        });
+      }
+      idClienteReferenciaNormalizado = rawIdRef; // Guardar versión normalizada
+    }
+
     // Cerrar actividad anterior si existe (evitar escaneo masivo y calcular duración en app)
     const registroAbierto = await prisma.registroActividad.findFirst({
       where: { usuarioId, horaFin: null },
@@ -225,7 +247,7 @@ export const startActivity = async (req, res) => {
         actividadId,
         subactividadId: subactividadId || null,
         observaciones: observaciones || null,
-        idClienteReferencia: idClienteReferencia || null,
+        idClienteReferencia: idClienteReferenciaNormalizado || null,
         resumenBreve: resumenBreve || null,
         fecha: localDate,
         horaInicio: new Date(),
