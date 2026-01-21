@@ -16,34 +16,34 @@ model Rol {
 }
 
 model Campaña {
-  id       Int       @id @default(autoincrement())
-  nombre   String    @unique @db.VarChar(100)
-  usuarios Usuario[]
+  id           Int                  @id @default(autoincrement())
+  nombre       String               @unique @db.VarChar(100)
+  usuarios     Usuario[]
   supervisores SupervisorCampaña[]
 
   @@map("campañas")
 }
 
 model Usuario {
-  id              Int       @id @default(autoincrement())
-  nombreUsuario   String    @unique @map("nombre_usuario") @db.VarChar(50)
-  contraseña      String    @db.VarChar(255)
-  nombreCompleto  String    @map("nombre_completo") @db.VarChar(100)
-  correoElectronico String? @map("correo_electronico") @db.VarChar(100)
-  documentoIdentidad String? @map("documento_identidad") @db.VarChar(20)
-  estado          Boolean   @default(true)
-  fechaCreacion   DateTime  @default(now()) @map("fecha_creacion") @db.Date
-  
-  rolId           Int       @map("rol_id")
-  rol             Rol       @relation(fields: [rolId], references: [id])
-  
-  campañaId       Int?      @map("campaña_id")
-  campaña         Campaña?  @relation(fields: [campañaId], references: [id])
-  
-  registros       RegistroActividad[]
-  passwordResets  PasswordResetToken[]
+  id                 Int      @id @default(autoincrement())
+  nombreUsuario      String   @unique @map("nombre_usuario") @db.VarChar(50)
+  contraseña        String   @db.VarChar(255)
+  nombreCompleto     String   @map("nombre_completo") @db.VarChar(100)
+  correoElectronico  String?  @map("correo_electronico") @db.VarChar(100)
+  documentoIdentidad String?  @map("documento_identidad") @db.VarChar(20)
+  estado             Boolean  @default(true)
+  fechaCreacion      DateTime @default(now()) @map("fecha_creacion") @db.Date
+
+  rolId Int @map("rol_id")
+  rol   Rol @relation(fields: [rolId], references: [id])
+
+  campañaId Int?      @map("campaña_id")
+  campaña   Campaña? @relation(fields: [campañaId], references: [id])
+
+  registros           RegistroActividad[]
+  passwordResets      PasswordResetToken[]
   supervisorCampañas SupervisorCampaña[]
-  horariosLaborales HorarioLaboral[]
+  horariosLaborales   HorarioLaboral[]
 
   @@index([nombreUsuario])
   @@index([correoElectronico])
@@ -84,22 +84,22 @@ model Subactividad {
 }
 
 model RegistroActividad {
-  id                   Int           @id @default(autoincrement())
-  usuarioId            Int           @map("usuario_id")
-  actividadId          Int           @map("actividad_id")
-  subactividadId       Int?          @map("subactividad_id")
-  fecha                DateTime      @db.Date
-  horaInicio           DateTime?     @map("hora_inicio") @db.Timestamp(6)
-  horaFin              DateTime?     @map("hora_fin") @db.Timestamp(6)
-  duracionSeg          Int?          @map("duracion_seg")
-  duracionHms          String?       @map("duracion_hms")
-  estado               String?       @db.VarChar(50)
-  observaciones        String?
-  idClienteReferencia  String?       @map("id_cliente_referencia") @db.VarChar(100)
-  resumenBreve         String?       @map("resumen_breve") @db.Text
-  actividad            Actividad     @relation(fields: [actividadId], references: [id])
-  subactividad         Subactividad? @relation(fields: [subactividadId], references: [id])
-  usuario              Usuario       @relation(fields: [usuarioId], references: [id])
+  id                  Int           @id @default(autoincrement())
+  usuarioId           Int           @map("usuario_id")
+  actividadId         Int           @map("actividad_id")
+  subactividadId      Int?          @map("subactividad_id")
+  fecha               DateTime      @db.Date
+  horaInicio          DateTime?     @map("hora_inicio") @db.Timestamp(6)
+  horaFin             DateTime?     @map("hora_fin") @db.Timestamp(6)
+  duracionSeg         Int?          @map("duracion_seg")
+  duracionHms         String?       @map("duracion_hms")
+  estado              String?       @db.VarChar(50)
+  observaciones       String?
+  idClienteReferencia String?       @map("id_cliente_referencia") @db.VarChar(100)
+  resumenBreve        String?       @map("resumen_breve") @db.Text
+  actividad           Actividad     @relation(fields: [actividadId], references: [id])
+  subactividad        Subactividad? @relation(fields: [subactividadId], references: [id])
+  usuario             Usuario       @relation(fields: [usuarioId], references: [id])
 
   @@index([usuarioId, fecha])
   @@index([actividadId])
@@ -115,8 +115,8 @@ model PasswordResetToken {
   expiraEn  DateTime @map("expira_en") @db.Timestamp(6)
   usado     Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  
-  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@index([usuarioId])
   @@index([token])
@@ -127,12 +127,12 @@ model PasswordResetToken {
 /// Relación M:N entre Supervisores (usuarios con rol Supervisor) y Campañas
 model SupervisorCampaña {
   supervisorId Int @map("supervisor_id")
-  campañaId    Int @map("campaña_id")
+  campañaId   Int @map("campaña_id")
 
-  supervisor   Usuario @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
-  campaña      Campaña @relation(fields: [campañaId], references: [id], onDelete: Cascade)
+  supervisor Usuario  @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
+  campaña   Campaña @relation(fields: [campañaId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
   @@id([supervisorId, campañaId])
   @@index([campañaId])
@@ -145,19 +145,19 @@ model SupervisorCampaña {
 /// 2. Mensual (tipoHorario='mensual'): Horarios variables cada mes (fechaEspecifica con día del mes)
 /// 3. Diario (tipoHorario='diario'): Horarios únicos por fecha específica
 model HorarioLaboral {
-  id            Int      @id @default(autoincrement())
-  usuarioId     Int      @map("usuario_id")
-  tipoHorario   String   @default("semanal") @map("tipo_horario") @db.VarChar(20) // 'semanal' | 'mensual' | 'diario'
-  diaSemana     Int?     @map("dia_semana") // 1-7 (Lunes-Domingo) - Usado en 'semanal'
+  id              Int       @id @default(autoincrement())
+  usuarioId       Int       @map("usuario_id")
+  tipoHorario     String    @default("semanal") @map("tipo_horario") @db.VarChar(20) // 'semanal' | 'mensual' | 'diario'
+  diaSemana       Int?      @map("dia_semana") // 1-7 (Lunes-Domingo) - Usado en 'semanal'
   fechaEspecifica DateTime? @map("fecha_especifica") @db.Date // Usado en 'mensual' (solo día-mes) o 'diario' (fecha completa)
-  horaInicio    String   @map("hora_inicio") @db.VarChar(5) // HH:MM formato 24h
-  horaFin       String   @map("hora_fin") @db.VarChar(5) // HH:MM formato 24h
-  horasObjetivo Decimal  @map("horas_objetivo") @db.Decimal(4, 2) // Ej: 8.00, 8.50
-  activo        Boolean  @default(true)
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+  horaInicio      String    @map("hora_inicio") @db.VarChar(5) // HH:MM formato 24h
+  horaFin         String    @map("hora_fin") @db.VarChar(5) // HH:MM formato 24h
+  horasObjetivo   Decimal   @map("horas_objetivo") @db.Decimal(4, 2) // Ej: 8.00, 8.50
+  activo          Boolean   @default(true)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@unique([usuarioId, tipoHorario, diaSemana, fechaEspecifica], name: "unique_horario_config")
   @@index([usuarioId])
