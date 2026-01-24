@@ -541,7 +541,12 @@ const getSubactivities = async (req, res) => {
     const subactividades = await prisma.subactividad.findMany({
       where,
       include: {
-        actividad: { select: { id: true, nombreActividad: true } }
+        actividad: { select: { id: true, nombreActividad: true } },
+        subactividadCampañas: {
+          include: {
+            campaña: { select: { id: true, nombre: true } }
+          }
+        }
       },
       orderBy: [{ actividadId: 'asc' }, { orden: 'asc' }]
     });
@@ -559,7 +564,7 @@ const createSubactivity = async (req, res) => {
       return res.status(403).json({ error: 'No autorizado' });
     }
 
-    const { actividadId, nombreSubactividad, descripcion, orden, activo } = req.body;
+    const { actividadId, nombreSubactividad, descripcion, orden, activo, campaignIds } = req.body;
     if (!actividadId || !nombreSubactividad) {
       return res.status(400).json({ error: 'actividadId y nombreSubactividad son requeridos' });
     }
@@ -596,6 +601,24 @@ const createSubactivity = async (req, res) => {
       }
     });
 
+    // Crear asignaciones a campañas (requerido: al menos una)
+    const campaignIdsArray = Array.isArray(campaignIds) ? campaignIds : [];
+    const uniqueCampaignIds = [...new Set(campaignIdsArray.map((c) => parseInt(c)).filter(Number.isInteger))];
+
+    let effectiveCampaignIds = uniqueCampaignIds;
+    if (effectiveCampaignIds.length === 0) {
+      const general = await prisma.campaña.findFirst({ where: { nombre: 'General' }, select: { id: true } });
+      if (!general?.id) {
+        return res.status(400).json({ error: 'Debe seleccionar al menos una campaña o crear la campaña "General" primero' });
+      }
+      effectiveCampaignIds = [general.id];
+    }
+
+    await prisma.subactividadCampaña.createMany({
+      data: effectiveCampaignIds.map((campañaId) => ({ campañaId, subactividadId: nueva.id })),
+      skipDuplicates: true
+    });
+
     res.status(201).json(nueva);
   } catch (error) {
     console.error('Error al crear subactividad:', error);
@@ -610,7 +633,7 @@ const updateSubactivity = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { actividadId, nombreSubactividad, descripcion, orden, activo } = req.body;
+    const { actividadId, nombreSubactividad, descripcion, orden, activo, campaignIds } = req.body;
 
     const existing = await prisma.subactividad.findUnique({ where: { id: parseIdSafe(id, 'id') } });
     if (!existing) return res.status(404).json({ error: 'Subactividad no encontrada' });
@@ -632,6 +655,29 @@ const updateSubactivity = async (req, res) => {
         activo: activo ?? undefined
       }
     });
+
+    // Reasignar campañas si se envía campaignIds
+    if (campaignIds !== undefined) {
+      const campaignIdsArray = Array.isArray(campaignIds) ? campaignIds : [];
+      const uniqueCampaignIds = [...new Set(campaignIdsArray.map((c) => parseInt(c)).filter(Number.isInteger))];
+
+      // Borrar asignaciones actuales y crear las nuevas
+      await prisma.subactividadCampaña.deleteMany({ where: { subactividadId: subAct.id } });
+
+      let effectiveCampaignIds = uniqueCampaignIds;
+      if (effectiveCampaignIds.length === 0) {
+        const general = await prisma.campaña.findFirst({ where: { nombre: 'General' }, select: { id: true } });
+        if (!general?.id) {
+          return res.status(400).json({ error: 'Debe seleccionar al menos una campaña o crear la campaña "General" primero' });
+        }
+        effectiveCampaignIds = [general.id];
+      }
+
+      await prisma.subactividadCampaña.createMany({
+        data: effectiveCampaignIds.map((campañaId) => ({ campañaId, subactividadId: subAct.id })),
+        skipDuplicates: true
+      });
+    }
 
     res.json(subAct);
   } catch (error) {
@@ -672,7 +718,14 @@ const toggleSubactivityStatus = async (req, res) => {
     const { activo } = req.body;
     const existing = await prisma.subactividad.findUnique({ where: { id: parseIdSafe(id, 'id') } });
     if (!existing) return res.status(404).json({ error: 'Subactividad no encontrada' });
-    const updated = await prisma.subactividad.update({ where: { id: parseIdSafe(id, 'id') }, data: { activo } });
+    const updated = await prisma.subactividad.update({
+      where: { id: parseIdSafe(id, 'id') },
+      data: { activo },
+      include: {
+        actividad: { select: { id: true, nombreActividad: true } },
+        subactividadCampañas: { include: { campaña: { select: { id: true, nombre: true } } } }
+      }
+    });
     res.json(updated);
   } catch (error) {
     console.error('Error al cambiar estado de subactividad:', error);

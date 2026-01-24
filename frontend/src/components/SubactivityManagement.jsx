@@ -3,7 +3,7 @@ import { Plus, Edit, Trash2, ToggleLeft, ToggleRight, Search } from 'lucide-reac
 import { toast } from 'react-hot-toast';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
-import { getActividades, getSubactividades, createSubactividad, updateSubactividad, deleteSubactividad, toggleSubactividadStatus } from '../services/adminService';
+import { getActividades, getSubactividades, createSubactividad, updateSubactividad, deleteSubactividad, toggleSubactividadStatus, getCampañas } from '../services/adminService';
 
 // 🔒 Actividades del sistema que NO deben tener subactividades
 const ACTIVIDADES_SISTEMA = ['Ingreso', 'Salida', 'Break Salida', 'Regreso Break'];
@@ -11,12 +11,13 @@ const ACTIVIDADES_SISTEMA = ['Ingreso', 'Salida', 'Break Salida', 'Regreso Break
 export default function SubactivityManagement() {
   const [activities, setActivities] = useState([]);
   const [subs, setSubs] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [search, setSearch] = useState('');
   const [filterActivity, setFilterActivity] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState({ actividadId: '', nombreSubactividad: '', descripcion: '', orden: 0, activo: true });
+  const [form, setForm] = useState({ actividadId: '', nombreSubactividad: '', descripcion: '', orden: 0, activo: true, campaignId: '' });
 
   // Filtrar actividades de jornada (excluir las del sistema)
   const actividadesJornada = useMemo(() => 
@@ -26,12 +27,14 @@ export default function SubactivityManagement() {
 
   const load = async () => {
     try {
-      const [acts, s] = await Promise.all([
+      const [acts, s, camps] = await Promise.all([
         getActividades(),
-        getSubactividades(filterActivity ? { actividadId: filterActivity } : {})
+        getSubactividades(filterActivity ? { actividadId: filterActivity } : {}),
+        getCampañas()
       ]);
       setActivities(acts);
       setSubs(s);
+      setCampaigns(camps);
     } catch {
       toast.error('Error al cargar subactividades');
     }
@@ -42,13 +45,14 @@ export default function SubactivityManagement() {
 
   const onCreate = () => {
     setSelected(null);
-    setForm({ actividadId: filterActivity || (actividadesJornada[0]?.id || ''), nombreSubactividad: '', descripcion: '', orden: 0, activo: true });
+    setForm({ actividadId: filterActivity || (actividadesJornada[0]?.id || ''), nombreSubactividad: '', descripcion: '', orden: 0, activo: true, campaignId: '' });
     setShowModal(true);
   };
 
   const onEdit = (s) => {
     setSelected(s);
-    setForm({ actividadId: s.actividadId, nombreSubactividad: s.nombreSubactividad, descripcion: s.descripcion || '', orden: s.orden || 0, activo: s.activo });
+    const currentCampaign = (s.subactividadCampañas || []).map((c) => c.campañaId || c.campaña?.id).find(Boolean) || '';
+    setForm({ actividadId: s.actividadId, nombreSubactividad: s.nombreSubactividad, descripcion: s.descripcion || '', orden: s.orden || 0, activo: s.activo, campaignId: currentCampaign });
     setShowModal(true);
   };
 
@@ -73,13 +77,22 @@ export default function SubactivityManagement() {
         toast.error('Actividad y nombre son requeridos');
         return;
       }
+      const general = campaigns.find(c => c.nombre === 'General');
+      const chosen = form.campaignId || (general ? general.id : '');
+      if (!chosen) {
+        toast.error('Selecciona una campaña o crea "General" primero');
+        return;
+      }
+      const payloadCampaignIds = [Number(chosen)];
+
       if (selected) {
         await updateSubactividad(selected.id, {
           actividadId: form.actividadId,
           nombreSubactividad: form.nombreSubactividad.trim(),
           descripcion: form.descripcion,
           orden: Number(form.orden),
-          activo: form.activo
+          activo: form.activo,
+          campaignIds: payloadCampaignIds
         });
         toast.success('Subactividad actualizada');
       } else {
@@ -88,7 +101,8 @@ export default function SubactivityManagement() {
           nombreSubactividad: form.nombreSubactividad.trim(),
           descripcion: form.descripcion,
           orden: Number(form.orden),
-          activo: form.activo
+          activo: form.activo,
+          campaignIds: payloadCampaignIds
         });
         toast.success('Subactividad creada');
       }
@@ -113,10 +127,12 @@ export default function SubactivityManagement() {
   const filtered = useMemo(() => subs.filter(s => {
     const term = search.toLowerCase();
     const activityName = s.actividad?.nombreActividad?.toLowerCase() || '';
+    const campaignNames = (s.subactividadCampañas || []).map(c => c.campaña?.nombre?.toLowerCase() || '').join(' ');
     return (
       activityName.includes(term) ||
       s.nombreSubactividad.toLowerCase().includes(term) ||
-      (s.descripcion || '').toLowerCase().includes(term)
+      (s.descripcion || '').toLowerCase().includes(term) ||
+      campaignNames.includes(term)
     );
   }), [subs, search]);
 
@@ -150,6 +166,7 @@ export default function SubactivityManagement() {
             <tr className="bg-neutral-50 text-left text-neutral-600">
               <th className="px-4 py-2">Actividad</th>
               <th className="px-4 py-2">Subactividad</th>
+              <th className="px-4 py-2">Campañas</th>
               <th className="px-4 py-2">Descripción</th>
               <th className="px-4 py-2">Orden</th>
               <th className="px-4 py-2">Estado</th>
@@ -161,6 +178,10 @@ export default function SubactivityManagement() {
               <tr key={s.id} className="border-t">
                 <td className="px-4 py-2">{s.actividad?.nombreActividad || '-'}</td>
                 <td className="px-4 py-2">{s.nombreSubactividad}</td>
+                <td className="px-4 py-2 text-sm text-neutral-700">
+                  {(s.subactividadCampañas?.length ? s.subactividadCampañas : [])
+                    .map((c) => c.campaña?.nombre || '-').join(', ') || 'Transversal'}
+                </td>
                 <td className="px-4 py-2">{s.descripcion || '-'}</td>
                 <td className="px-4 py-2">{s.orden}</td>
                 <td className="px-4 py-2">
@@ -179,7 +200,7 @@ export default function SubactivityManagement() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-center text-neutral-500" colSpan={6}>Sin subactividades</td>
+                <td className="px-4 py-6 text-center text-neutral-500" colSpan={7}>Sin subactividades</td>
               </tr>
             )}
           </tbody>
@@ -196,6 +217,20 @@ export default function SubactivityManagement() {
                 <option key={a.id} value={a.id}>{a.nombreActividad}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Campaña asignada</label>
+            <select
+              value={form.campaignId}
+              onChange={(e)=>setForm({...form, campaignId: e.target.value})}
+              className="w-full border border-neutral-300 rounded-lg px-3 py-2"
+            >
+              <option value="">Seleccionar...</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+            <p className="text-xs text-neutral-500">Debe haber una sola campaña asignada; si dejas vacío y existe "General", se usará General.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Nombre de Subactividad</label>

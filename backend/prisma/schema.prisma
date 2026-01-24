@@ -20,6 +20,7 @@ model Campaña {
   nombre       String               @unique @db.VarChar(100)
   usuarios     Usuario[]
   supervisores SupervisorCampaña[]
+  subactividadCampañas SubactividadCampaña[]
 
   @@map("campañas")
 }
@@ -77,6 +78,7 @@ model Subactividad {
   createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamp(6)
   registros          RegistroActividad[]
   actividad          Actividad           @relation(fields: [actividadId], references: [id], onDelete: Cascade)
+  subactividadCampañas SubactividadCampaña[]
 
   @@unique([actividadId, nombreSubactividad])
   @@index([actividadId, activo])
@@ -165,4 +167,19 @@ model HorarioLaboral {
   @@index([tipoHorario])
   @@index([fechaEspecifica])
   @@map("horarios_laborales")
+}
+
+/// Relación M:N entre Subactividades y Campañas
+model SubactividadCampaña {
+  subactividadId Int @map("subactividad_id")
+  campañaId      Int @map("campaña_id")
+
+  subactividad   Subactividad @relation(fields: [subactividadId], references: [id], onDelete: Cascade)
+  campaña        Campaña      @relation(fields: [campañaId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@id([subactividadId, campañaId])
+  @@index([campañaId])
+  @@map("subactividad_campañas")
 }

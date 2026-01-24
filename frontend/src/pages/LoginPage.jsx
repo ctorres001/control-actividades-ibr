@@ -29,7 +29,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const credentials = { username, password };
+      const credentials = { nombreUsuario: username, contraseña: password };
       const response = await login(credentials);
       
       if (response.success) {

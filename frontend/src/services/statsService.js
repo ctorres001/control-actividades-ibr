@@ -90,14 +90,21 @@ export function exportToExcel(registros, filename = 'estadisticas', options = {}
   const {
     groupBy = 'user',
     includeDetails = true,
-    includeSummary = true
+    includeSummary = true,
+    includeActivitySheet = true,
+    excludeActivities = []
   } = options;
+
+  // Filtrar actividades excluidas
+  const filtered = Array.isArray(registros)
+    ? registros.filter(r => !excludeActivities.includes(r.nombreActividad))
+    : [];
 
   const workbook = XLSX.utils.book_new();
 
   // Hoja 1: Resumen por grupo
   if (includeSummary) {
-    const stats = processStats(registros, groupBy);
+    const stats = processStats(filtered, groupBy);
     const summaryData = [];
 
     for (const [key, data] of Object.entries(stats)) {
@@ -202,7 +209,7 @@ export function exportToExcel(registros, filename = 'estadisticas', options = {}
   if (includeDetails) {
     const detailData = [];
 
-    for (const registro of registros) {
+    for (const registro of filtered) {
       const start = new Date(registro.fechaInicio);
       const end = registro.fechaFin ? new Date(registro.fechaFin) : new Date();
       const duration = (end - start) / 1000;
@@ -273,45 +280,47 @@ export function exportToExcel(registros, filename = 'estadisticas', options = {}
     XLSX.utils.book_append_sheet(workbook, detailSheet, 'Detalle');
   }
 
-  // Hoja 3: Tiempo por actividad
-  const activityStats = {};
-  for (const registro of registros) {
-    const start = new Date(registro.fechaInicio);
-    const end = registro.fechaFin ? new Date(registro.fechaFin) : new Date();
-    const duration = (end - start) / 1000;
-    const activity = registro.nombreActividad || 'Sin nombre';
+  // Hoja 3: Tiempo por actividad (opcional)
+  if (includeActivitySheet) {
+    const activityStats = {};
+    for (const registro of filtered) {
+      const start = new Date(registro.fechaInicio);
+      const end = registro.fechaFin ? new Date(registro.fechaFin) : new Date();
+      const duration = (end - start) / 1000;
+      const activity = registro.nombreActividad || 'Sin nombre';
 
-    if (!activityStats[activity]) {
-      activityStats[activity] = {
-        count: 0,
-        totalDuration: 0
-      };
+      if (!activityStats[activity]) {
+        activityStats[activity] = {
+          count: 0,
+          totalDuration: 0
+        };
+      }
+
+      activityStats[activity].count += 1;
+      activityStats[activity].totalDuration += duration;
     }
 
-    activityStats[activity].count += 1;
-    activityStats[activity].totalDuration += duration;
+    const activityData = Object.entries(activityStats)
+      .map(([activity, data]) => ({
+        'Actividad': activity,
+        'Veces Realizada': data.count,
+        'Tiempo Total': formatDuration(data.totalDuration),
+        'Tiempo Promedio': formatDuration(data.totalDuration / data.count),
+        'Es Trabajo': !['Ingreso', 'Salida', 'Break Salida', 'Break Regreso'].includes(activity) ? 'Sí' : 'No'
+      }))
+      .sort((a, b) => b['Veces Realizada'] - a['Veces Realizada']);
+
+    const activitySheet = XLSX.utils.json_to_sheet(activityData);
+    activitySheet['!cols'] = [
+      { wch: 20 }, // Actividad
+      { wch: 15 }, // Veces Realizada
+      { wch: 15 }, // Tiempo Total
+      { wch: 15 }, // Tiempo Promedio
+      { wch: 10 }  // Es Trabajo
+    ];
+
+    XLSX.utils.book_append_sheet(workbook, activitySheet, 'Por Actividad');
   }
-
-  const activityData = Object.entries(activityStats)
-    .map(([activity, data]) => ({
-      'Actividad': activity,
-      'Veces Realizada': data.count,
-      'Tiempo Total': formatDuration(data.totalDuration),
-      'Tiempo Promedio': formatDuration(data.totalDuration / data.count),
-      'Es Trabajo': !['Ingreso', 'Salida', 'Break Salida', 'Break Regreso'].includes(activity) ? 'Sí' : 'No'
-    }))
-    .sort((a, b) => b['Veces Realizada'] - a['Veces Realizada']);
-
-  const activitySheet = XLSX.utils.json_to_sheet(activityData);
-  activitySheet['!cols'] = [
-    { wch: 20 }, // Actividad
-    { wch: 15 }, // Veces Realizada
-    { wch: 15 }, // Tiempo Total
-    { wch: 15 }, // Tiempo Promedio
-    { wch: 10 }  // Es Trabajo
-  ];
-
-  XLSX.utils.book_append_sheet(workbook, activitySheet, 'Por Actividad');
 
   // Generar y descargar archivo
   const timestamp = new Date().toISOString().split('T')[0];

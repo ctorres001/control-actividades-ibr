@@ -19,6 +19,8 @@ export default function AsesorDashboard() {
   const [currentActivityId, setCurrentActivityId] = useState(null);
   const [currentActivityName, setCurrentActivityName] = useState(null);
   const [currentStartOffset, setCurrentStartOffset] = useState(0);
+  const [currentStartEpoch, setCurrentStartEpoch] = useState(null); // epoch de inicio del reloj visible
+  const [uiTimerKey, setUiTimerKey] = useState(null); // key para forzar render del cronómetro aunque no haya registro
   const [showModal, setShowModal] = useState(false);
   const [pendingActivity, setPendingActivity] = useState(null);
   const [summary, setSummary] = useState([]);
@@ -81,6 +83,8 @@ export default function AsesorDashboard() {
           const now = new Date();
           const secondsElapsed = Math.floor((now - start) / 1000);
           setCurrentStartOffset(secondsElapsed);
+          setCurrentStartEpoch(Date.now() - secondsElapsed * 1000);
+          setUiTimerKey(null);
           console.log('✅ Actividad restaurada:', {
             nombreActividad: res.actividad?.nombreActividad,
             horaInicio: res.horaInicio,
@@ -115,10 +119,13 @@ export default function AsesorDashboard() {
       setIsStarting(false);
       setPendingActivity(null);
       setShowModal(false);
+      setUiTimerKey(null);
+      setCurrentStartEpoch(null);
     };
   }, [loadActivities, loadSummaryAndLog, restoreOpen]);
 
   const handleStartClick = async (activity) => {
+    let started = false; // banderín local para no resetear el reloj si iniciamos bien
     // Si la jornada ya finalizó, no permitir iniciar más actividades
     if (jornalFinished) {
       toast.error('La jornada ya ha finalizado', { id: 'jornada-finalizada' });
@@ -128,7 +135,12 @@ export default function AsesorDashboard() {
     // Bloquear botones durante el inicio
     setIsStarting(true);
 
-    // Feedback visual inmediato
+    // Feedback visual inmediato + arrancar cronómetro al clic
+    setUiTimerKey(Date.now());
+    setCurrentActivityName(activity.nombreActividad);
+    setCurrentActivityId(activity.id);
+    setCurrentStartOffset(0);
+    setCurrentStartEpoch(Date.now());
     const toastId = toast.loading(`Iniciando ${activity.nombreActividad}...`, { id: 'starting-activity' });
 
     try {
@@ -148,6 +160,8 @@ export default function AsesorDashboard() {
             setCurrentActivityId(null);
             setCurrentActivityName('Jornada Finalizada');
             setCurrentStartOffset(0);
+            setCurrentStartEpoch(null);
+            setUiTimerKey(null);
             toast.success('✅ Salida registrada. ¡Jornada finalizada!', { id: toastId });
             await loadSummaryAndLog();
           }
@@ -202,6 +216,9 @@ export default function AsesorDashboard() {
           setCurrentActivityId(activity.id);
           setCurrentActivityName(activity.nombreActividad);
           setCurrentStartOffset(0); // Reiniciar desde 0
+          setCurrentStartEpoch(Date.now());
+          setUiTimerKey(null);
+          started = true;
           
           console.log('✅ Estado actualizado:', {
             currentRegistroId: res.id,
@@ -231,10 +248,16 @@ export default function AsesorDashboard() {
       // IMPORTANTE: Siempre resetear isStarting
       console.log('🔓 Reseteando isStarting a false');
       setIsStarting(false);
+      // Solo limpiar el reloj si NO se inició y no quedó un modal pendiente
+      if (!started && !currentRegistroId && !showModal && !pendingActivity) {
+        setUiTimerKey(null);
+        setCurrentStartEpoch(null);
+      }
     }
   };
 
   const handleConfirmModal = async ({ subactivityId, idClienteReferencia, resumenBreve }) => {
+    let started = false; // no limpiar reloj si se inició correctamente
     setShowModal(false);
     if (!pendingActivity) return;
     
@@ -262,7 +285,9 @@ export default function AsesorDashboard() {
         setCurrentRegistroId(res.id);
         setCurrentActivityId(pendingActivity.id);
         setCurrentActivityName(pendingActivity.nombreActividad);
-        setCurrentStartOffset(0);
+        // NO resetear offset ni epoch, mantener el que se inició al hacer clic en el botón
+        setUiTimerKey(null);
+        started = true;
         
         console.log('✅ Estado actualizado (con detalles):', {
           currentRegistroId: res.id,
@@ -284,6 +309,11 @@ export default function AsesorDashboard() {
       setPendingActivity(null);
       console.log('🔓 Reseteando isStarting a false (modal)');
       setIsStarting(false);
+      // Solo limpiar si no inició y no hay más pendientes
+      if (!started && !currentRegistroId) {
+        setUiTimerKey(null);
+        setCurrentStartEpoch(null);
+      }
     }
   };
 
@@ -381,13 +411,16 @@ export default function AsesorDashboard() {
                 <div className="text-lg font-semibold text-neutral-700">✅ Jornada Finalizada</div>
                 <div className="text-sm text-neutral-500 mt-1">Has marcado tu salida</div>
               </div>
-            ) : currentRegistroId ? (
+            ) : (currentRegistroId || uiTimerKey) ? (
               <>
                 <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="text-sm text-blue-600 font-medium">Actividad en curso:</div>
                   <div className="text-lg font-bold text-blue-900">{currentActivityName || 'Actividad'}</div>
                 </div>
-                <TimerSync key={currentRegistroId} initialOffsetSeconds={currentStartOffset} />
+                <TimerSync
+                  key={currentRegistroId || uiTimerKey}
+                  initialOffsetSeconds={currentStartEpoch ? Math.max(0, Math.floor((Date.now() - currentStartEpoch) / 1000)) : currentStartOffset}
+                />
               </>
             ) : (
               <div className="p-3 bg-neutral-100 rounded text-center text-neutral-600">Sin actividad en curso</div>
@@ -395,7 +428,11 @@ export default function AsesorDashboard() {
           </div>
 
           <div className="mb-4">
-            <DailySummary summary={summary} totalRegistros={log.length} />
+            <DailySummary
+              summary={summary}
+              totalRegistros={log.length}
+              currentStartEpoch={currentStartEpoch}
+            />
           </div>
 
           <div>
@@ -413,6 +450,8 @@ export default function AsesorDashboard() {
             setShowModal(false);
             setPendingActivity(null);
             setIsStarting(false); // ⚡ FIX: Resetear isStarting al cancelar
+            setUiTimerKey(null);
+            setCurrentStartEpoch(null);
             toast.dismiss('starting-activity');
           }} 
           onConfirm={handleConfirmModal} 

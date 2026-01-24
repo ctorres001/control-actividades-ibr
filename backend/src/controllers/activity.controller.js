@@ -65,10 +65,32 @@ export const getSubactivities = async (req, res) => {
   try {
     const { activityId } = req.params;
     const actividadId = parseIdSafe(activityId, 'activityId');
+    const campañaId = req.user?.campañaId || null;
+
+    // Obtener ID de campaña 'General' si existe
+    let generalId = null;
+    try {
+      const general = await prisma.campaña.findFirst({ where: { nombre: 'General' }, select: { id: true } });
+      generalId = general?.id || null;
+    } catch (_) { /* no-op */ }
+
+    const whereCampaign = () => {
+      // Exigir campaña asignada: propia o 'General'
+      if (!campañaId) {
+        return generalId
+          ? { subactividadCampañas: { some: { campañaId: generalId } } }
+          : { subactividadCampañas: { some: { campañaId: -1 } } }; // si no existe 'General', no mostrar
+      }
+      const orConds = [{ subactividadCampañas: { some: { campañaId } } }];
+      if (generalId) orConds.push({ subactividadCampañas: { some: { campañaId: generalId } } });
+      return { OR: orConds };
+    };
 
     const subactividades = await prisma.subactividad.findMany({
       where: {
-        actividadId: actividadId
+        actividadId: actividadId,
+        activo: true,
+        ...whereCampaign()
       },
       orderBy: [
         { orden: 'asc' },
@@ -157,11 +179,33 @@ export const startActivity = async (req, res) => {
 
     // Validar subactividad si se proporciona
     if (subactividadId) {
+      const campañaId = req.user?.campañaId || null;
+
+      // Obtener ID de campaña 'General' si existe
+      let generalId = null;
+      try {
+        const general = await prisma.campaña.findFirst({ where: { nombre: 'General' }, select: { id: true } });
+        generalId = general?.id || null;
+      } catch (_) { /* no-op */ }
+
+      const campaignFilter = () => {
+        // Exigir campaña asignada: propia o 'General'
+        if (!campañaId) {
+          return generalId
+            ? { subactividadCampañas: { some: { campañaId: generalId } } }
+            : { subactividadCampañas: { some: { campañaId: -1 } } };
+        }
+        const orConds = [{ subactividadCampañas: { some: { campañaId } } }];
+        if (generalId) orConds.push({ subactividadCampañas: { some: { campañaId: generalId } } });
+        return { OR: orConds };
+      };
+
       const subactividad = await prisma.subactividad.findFirst({
         where: {
           id: subactividadId,
           actividadId,
-          activo: true
+          activo: true,
+          ...campaignFilter()
         }
       });
 
@@ -459,16 +503,25 @@ export const getTodaySummary = async (req, res) => {
     }
 
     // Agrupa por actividad y suma duraciones (incluyendo actividades en curso)
+    // Protección adicional:
+    // - Ignorar duraciones negativas
+    // - Limitar a 16h máximo por registro para evitar valores aberrantes
     const resumen = await prisma.$queryRaw`
       SELECT 
         a.nombre_actividad as "nombreActividad",
         SUM(
-          CASE 
-            WHEN r.hora_fin IS NULL THEN 
-              EXTRACT(EPOCH FROM (NOW() - r.hora_inicio))::integer
-            ELSE 
-              COALESCE(r.duracion_seg, 0)
-          END
+          GREATEST(
+            LEAST(
+              CASE 
+                WHEN r.hora_fin IS NULL THEN 
+                  EXTRACT(EPOCH FROM (NOW() - r.hora_inicio))::integer
+                ELSE 
+                  COALESCE(r.duracion_seg, 0)
+              END,
+              16 * 3600 -- máximo 16h por registro
+            ),
+            0 -- no permitir negativos
+          )
         )::integer as "duracionSeg"
       FROM registro_actividades r
       JOIN actividades a ON r.actividad_id = a.id
