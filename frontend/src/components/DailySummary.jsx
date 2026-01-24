@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function DailySummary({ summary = [], totalRegistros = 0, currentStartEpoch = null, carryOverSeconds = 0 }) {
+export default function DailySummary({ summary = [], totalRegistros = 0, currentStartEpoch = null }) {
   const [liveSeconds, setLiveSeconds] = useState(0);
 
   // Actualizar tiempo en vivo solo dentro de este componente
@@ -24,7 +24,7 @@ export default function DailySummary({ summary = [], totalRegistros = 0, current
     // Filtrar valores negativos o inválidos
     if (isNaN(secs) || secs < 0) return acc;
     return acc + secs;
-  }, 0) + liveSeconds + Math.max(0, carryOverSeconds);
+  }, 0) + liveSeconds;
 
   const formatTime = (secs) => {
     if (isNaN(secs) || secs < 0) return '00:00:00';

@@ -28,7 +28,6 @@ export default function AsesorDashboard() {
   const [isStarting, setIsStarting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasInitialized, setHasInitialized] = useState(false); // 🔒 Nuevo: Bandera de inicialización
-  const [carryOverSeconds, setCarryOverSeconds] = useState(0); // tiempo acumulado de la actividad anterior mientras se reinicia el timer
   
   // Día iniciado: considerar tanto el log como el estado local inmediato tras iniciar "Ingreso"
   const dayStartedFromLog = log?.some((r) => (r.nombreActividad || r.nombre_actividad) === 'Ingreso');
@@ -128,13 +127,6 @@ export default function AsesorDashboard() {
 
   const handleStartClick = async (activity) => {
     let started = false; // banderín local para no resetear el reloj si iniciamos bien
-    // Si había una actividad corriendo, preservar sus segundos en curso para que el Tiempo Total no retroceda
-    const previousElapsed = currentRegistroId && currentStartEpoch
-      ? Math.max(0, Math.floor((Date.now() - currentStartEpoch) / 1000))
-      : 0;
-    if (previousElapsed > 0) {
-      setCarryOverSeconds((prev) => prev + previousElapsed);
-    }
     // Si la jornada ya finalizó, no permitir iniciar más actividades
     if (jornalFinished) {
       toast.error('La jornada ya ha finalizado', { id: 'jornada-finalizada' });
@@ -238,7 +230,6 @@ export default function AsesorDashboard() {
           
           toast.success(`✅ ${activity.nombreActividad} iniciada`, { id: toastId });
           await loadSummaryAndLog(); // Esperar a que termine la recarga
-          setCarryOverSeconds(0); // Limpiar después de que summary tenga la actividad previa
           // Protección contra caché de 2-3s en backend: si aún no refleja "Ingreso", forzar enable con estado local
           if (activity.nombreActividad === 'Ingreso' && !dayStartedFromLog) {
             console.log('ℹ️ dayStarted activado por estado local (caché en backend)');
@@ -250,17 +241,10 @@ export default function AsesorDashboard() {
       } catch (err) {
         console.error('❌ Error iniciando actividad:', err);
         toast.error('No se pudo iniciar la actividad', { id: toastId });
-        // revertir el carry-over si falló
-        if (previousElapsed > 0) {
-          setCarryOverSeconds((prev) => Math.max(0, prev - previousElapsed));
-        }
       }
     } catch (err) {
       console.error('❌ Error general:', err);
       toast.error('Error inesperado', { id: toastId });
-      if (previousElapsed > 0) {
-        setCarryOverSeconds((prev) => Math.max(0, prev - previousElapsed));
-      }
     } finally {
       // IMPORTANTE: Siempre resetear isStarting
       console.log('🔓 Reseteando isStarting a false');
@@ -275,12 +259,6 @@ export default function AsesorDashboard() {
 
   const handleConfirmModal = async ({ subactivityId, idClienteReferencia, resumenBreve }) => {
     let started = false; // no limpiar reloj si se inició correctamente
-    const previousElapsed = currentRegistroId && currentStartEpoch
-      ? Math.max(0, Math.floor((Date.now() - currentStartEpoch) / 1000))
-      : 0;
-    if (previousElapsed > 0) {
-      setCarryOverSeconds((prev) => prev + previousElapsed);
-    }
     setShowModal(false);
     if (!pendingActivity) return;
     
@@ -320,7 +298,6 @@ export default function AsesorDashboard() {
         
         toast.success(`✅ ${pendingActivity.nombreActividad} iniciada`, { id: toastId });
         await loadSummaryAndLog();
-        setCarryOverSeconds(0); // Limpiar después de que summary tenga la actividad previa
       } else {
         console.error('❌ Respuesta sin ID (con detalles):', res);
         toast.error('Error: respuesta inválida del servidor', { id: toastId });
@@ -329,9 +306,6 @@ export default function AsesorDashboard() {
       console.error('❌ Error iniciando actividad con detalles:', err);
       console.error('❌ Detalles del error:', err.response?.data || err.message);
       toast.error('Error iniciando actividad con detalles', { id: toastId });
-      if (previousElapsed > 0) {
-        setCarryOverSeconds((prev) => Math.max(0, prev - previousElapsed));
-      }
     } finally {
       setPendingActivity(null);
       console.log('🔓 Reseteando isStarting a false (modal)');
