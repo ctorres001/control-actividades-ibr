@@ -1,43 +1,40 @@
 import React, { useState, useEffect } from 'react';
 
-export default function DailySummary({ summary = [], totalRegistros = 0, currentStartEpoch = null }) {
-  const [liveSeconds, setLiveSeconds] = useState(0);
-  const [peakTotalSeconds, setPeakTotalSeconds] = useState(0); // Máximo alcanzado, nunca disminuye
+export default function DailySummary({ summary = [], totalRegistros = 0, currentStartEpoch = null, log = [] }) {
+  const [jornadaElapsed, setJornadaElapsed] = useState(0);
 
-  // Actualizar tiempo en vivo solo dentro de este componente
+  // Buscar el primer "Ingreso" del día en el log
+  const ingresoRecord = log.find(r => (r.nombreActividad || r.nombre_actividad) === 'Ingreso');
+  const salidaRecord = log.find(r => (r.nombreActividad || r.nombre_actividad) === 'Salida');
+  
+  const ingresoTime = ingresoRecord ? new Date(ingresoRecord.horaInicio || ingresoRecord.fechaInicio) : null;
+  const salidaTime = salidaRecord ? new Date(salidaRecord.horaFin || salidaRecord.fechaFin) : null;
+
+  // Cronómetro de jornada: desde Ingreso hasta ahora (o hasta Salida si ya finalizó)
   useEffect(() => {
-    if (!currentStartEpoch) {
-      setLiveSeconds(0);
+    if (!ingresoTime) {
+      setJornadaElapsed(0);
       return;
     }
+
+    // Si ya hay salida registrada, usar ese tiempo fijo
+    if (salidaTime) {
+      const elapsed = Math.floor((salidaTime - ingresoTime) / 1000);
+      setJornadaElapsed(Math.max(0, elapsed));
+      return;
+    }
+
+    // Si no hay salida, cronometrar desde ingreso hasta ahora
     const tick = () => {
-      const secs = Math.max(0, Math.floor((Date.now() - currentStartEpoch) / 1000));
-      setLiveSeconds(secs);
+      const elapsed = Math.floor((Date.now() - ingresoTime) / 1000);
+      setJornadaElapsed(Math.max(0, elapsed));
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [currentStartEpoch]);
+  }, [ingresoTime, salidaTime]);
 
-  // Calcular total del summary
-  const summaryTotal = summary.reduce((acc, item) => {
-    const secs = parseInt(item.duracionSeg || item.totalSegundos || 0, 10);
-    if (isNaN(secs) || secs < 0) return acc;
-    return acc + secs;
-  }, 0);
-
-  // Calcular tiempo total actual: summary + segundos de actividad en curso
-  const calculatedTotal = summaryTotal + liveSeconds;
-
-  // Mantener el máximo alcanzado - nunca retrocede
-  useEffect(() => {
-    if (calculatedTotal > peakTotalSeconds) {
-      setPeakTotalSeconds(calculatedTotal);
-    }
-  }, [calculatedTotal, peakTotalSeconds]);
-
-  // Mostrar el mayor entre el calculado y el peak (evita retrocesos)
-  const totalSeconds = Math.max(calculatedTotal, peakTotalSeconds);
+  const totalSeconds = jornadaElapsed;
 
   const formatTime = (secs) => {
     if (isNaN(secs) || secs < 0) return '00:00:00';

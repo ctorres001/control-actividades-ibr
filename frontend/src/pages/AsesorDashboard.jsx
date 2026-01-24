@@ -433,6 +433,7 @@ export default function AsesorDashboard() {
               summary={summary}
               totalRegistros={log.length}
               currentStartEpoch={currentStartEpoch}
+              log={log}
             />
           </div>
 
