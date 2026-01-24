@@ -433,7 +433,6 @@ export default function AsesorDashboard() {
               summary={summary}
               totalRegistros={log.length}
               currentStartEpoch={currentStartEpoch}
-              carryOverSeconds={carryOverSeconds}
             />
           </div>
 
