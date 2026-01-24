@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 export default function DailySummary({ summary = [], totalRegistros = 0, currentStartEpoch = null }) {
   const [liveSeconds, setLiveSeconds] = useState(0);
-  const [frozenSeconds, setFrozenSeconds] = useState(0); // Preservar segundos durante transición
-  const [lastSummaryTotal, setLastSummaryTotal] = useState(0);
+  const [peakTotalSeconds, setPeakTotalSeconds] = useState(0); // Máximo alcanzado, nunca disminuye
 
   // Actualizar tiempo en vivo solo dentro de este componente
   useEffect(() => {
@@ -20,31 +19,25 @@ export default function DailySummary({ summary = [], totalRegistros = 0, current
     return () => clearInterval(id);
   }, [currentStartEpoch]);
 
-  // Detectar cambios en summary para descongelar
+  // Calcular total del summary
   const summaryTotal = summary.reduce((acc, item) => {
     const secs = parseInt(item.duracionSeg || item.totalSegundos || 0, 10);
     if (isNaN(secs) || secs < 0) return acc;
     return acc + secs;
   }, 0);
 
-  useEffect(() => {
-    // Si summary aumentó, descongelar (el backend ya consolidó la actividad anterior)
-    if (summaryTotal > lastSummaryTotal) {
-      setFrozenSeconds(0);
-    }
-    setLastSummaryTotal(summaryTotal);
-  }, [summaryTotal, lastSummaryTotal]);
+  // Calcular tiempo total actual: summary + segundos de actividad en curso
+  const calculatedTotal = summaryTotal + liveSeconds;
 
-  // Congelar segundos actuales cuando epoch se resetea pero summary aún no se actualiza
+  // Mantener el máximo alcanzado - nunca retrocede
   useEffect(() => {
-    if (!currentStartEpoch && liveSeconds > 0) {
-      // Epoch se resetó, congelar el último valor de liveSeconds
-      setFrozenSeconds(liveSeconds);
+    if (calculatedTotal > peakTotalSeconds) {
+      setPeakTotalSeconds(calculatedTotal);
     }
-  }, [currentStartEpoch, liveSeconds]);
+  }, [calculatedTotal, peakTotalSeconds]);
 
-  // Total = summary + (liveSeconds actuales O segundos congelados durante transición)
-  const totalSeconds = summaryTotal + (currentStartEpoch ? liveSeconds : frozenSeconds);
+  // Mostrar el mayor entre el calculado y el peak (evita retrocesos)
+  const totalSeconds = Math.max(calculatedTotal, peakTotalSeconds);
 
   const formatTime = (secs) => {
     if (isNaN(secs) || secs < 0) return '00:00:00';
