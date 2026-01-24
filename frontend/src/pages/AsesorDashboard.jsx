@@ -36,6 +36,7 @@ export default function AsesorDashboard() {
   // Verificar si ya se marcó salida (desde el log o estado local)
   const hasSalidaInLog = log?.some((r) => (r.nombreActividad || r.nombre_actividad) === 'Salida');
   const jornalFinished = currentActivityName === 'Jornada Finalizada' || hasSalidaInLog;
+  const timerKey = uiTimerKey ?? currentRegistroId; // prefiera el key forzado para reinicios inmediatos
 
   const loadActivities = useCallback(async () => {
     try {
@@ -411,14 +412,14 @@ export default function AsesorDashboard() {
                 <div className="text-lg font-semibold text-neutral-700">✅ Jornada Finalizada</div>
                 <div className="text-sm text-neutral-500 mt-1">Has marcado tu salida</div>
               </div>
-            ) : (currentRegistroId || uiTimerKey) ? (
+            ) : timerKey ? (
               <>
                 <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="text-sm text-blue-600 font-medium">Actividad en curso:</div>
                   <div className="text-lg font-bold text-blue-900">{currentActivityName || 'Actividad'}</div>
                 </div>
                 <TimerSync
-                  key={currentRegistroId || uiTimerKey}
+                  key={timerKey}
                   initialOffsetSeconds={currentStartEpoch ? Math.max(0, Math.floor((Date.now() - currentStartEpoch) / 1000)) : currentStartOffset}
                 />
               </>
