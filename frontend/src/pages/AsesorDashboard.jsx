@@ -228,7 +228,6 @@ export default function AsesorDashboard() {
           setCurrentStartEpoch(Date.now());
           setUiTimerKey(null);
           started = true;
-          setCarryOverSeconds(0); // ya consolidamos el tiempo previo en el backend
           
           console.log('✅ Estado actualizado:', {
             currentRegistroId: res.id,
@@ -239,6 +238,7 @@ export default function AsesorDashboard() {
           
           toast.success(`✅ ${activity.nombreActividad} iniciada`, { id: toastId });
           await loadSummaryAndLog(); // Esperar a que termine la recarga
+          setCarryOverSeconds(0); // Limpiar después de que summary tenga la actividad previa
           // Protección contra caché de 2-3s en backend: si aún no refleja "Ingreso", forzar enable con estado local
           if (activity.nombreActividad === 'Ingreso' && !dayStartedFromLog) {
             console.log('ℹ️ dayStarted activado por estado local (caché en backend)');
@@ -311,7 +311,6 @@ export default function AsesorDashboard() {
         // NO resetear offset ni epoch, mantener el que se inició al hacer clic en el botón
         setUiTimerKey(null);
         started = true;
-        setCarryOverSeconds(0);
         
         console.log('✅ Estado actualizado (con detalles):', {
           currentRegistroId: res.id,
@@ -321,6 +320,7 @@ export default function AsesorDashboard() {
         
         toast.success(`✅ ${pendingActivity.nombreActividad} iniciada`, { id: toastId });
         await loadSummaryAndLog();
+        setCarryOverSeconds(0); // Limpiar después de que summary tenga la actividad previa
       } else {
         console.error('❌ Respuesta sin ID (con detalles):', res);
         toast.error('Error: respuesta inválida del servidor', { id: toastId });
