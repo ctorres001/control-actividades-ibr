@@ -66,43 +66,104 @@ export const getSubactivities = async (req, res) => {
     const { activityId } = req.params;
     const actividadId = parseIdSafe(activityId, 'activityId');
     const campañaId = req.user?.campañaId || null;
+    const userRole = req.user?.rol || '';
 
-    // Obtener ID de campaña 'General' si existe
-    let generalId = null;
-    try {
-      const general = await prisma.campaña.findFirst({ where: { nombre: 'General' }, select: { id: true } });
-      generalId = general?.id || null;
-    } catch (_) { /* no-op */ }
+    console.log('🔍 getSubactivities:', { activityId, campañaId, userRole });
 
-    const whereCampaign = () => {
-      // Exigir campaña asignada: propia o 'General'
-      if (!campañaId) {
-        return generalId
-          ? { subactividadCampañas: { some: { campañaId: generalId } } }
-          : { subactividadCampañas: { some: { campañaId: -1 } } }; // si no existe 'General', no mostrar
+    // OPCIÓN 2: Dos queries separadas y combinar
+    let subactividades = [];
+    const subactividadesMap = new Map(); // Para evitar duplicados
+
+    // ADMINISTRADORES: Ver todas las subactividades sin filtro
+    if (userRole === 'Administrador') {
+      console.log('🔑 Administrador - todas las subactividades');
+      const all = await prisma.subactividad.findMany({
+        where: {
+          actividadId: actividadId,
+          activo: true
+        },
+        orderBy: [
+          { orden: 'asc' },
+          { nombreSubactividad: 'asc' }
+        ],
+        select: {
+          id: true,
+          nombreSubactividad: true,
+          descripcion: true,
+          orden: true
+        }
+      });
+      
+      subactividades = all.map(sub => ({ ...sub, esGeneral: false }));
+      
+    } else {
+      // ASESORES/SUPERVISORES: Query 1 - Subactividades de su campaña
+      if (campañaId) {
+        console.log('👤 Query 1: Subactividades de campaña', campañaId);
+        const campaignSubs = await prisma.subactividad.findMany({
+          where: {
+            actividadId: actividadId,
+            activo: true,
+            subactividadCampañas: {
+              some: { campañaId: campañaId }
+            }
+          },
+          select: {
+            id: true,
+            nombreSubactividad: true,
+            descripcion: true,
+            orden: true
+          }
+        });
+
+        // Agregar al mapa
+        campaignSubs.forEach(sub => {
+          subactividadesMap.set(sub.id, { ...sub, esGeneral: false });
+        });
+        console.log(`  ✅ ${campaignSubs.length} de campaña`);
       }
-      const orConds = [{ subactividadCampañas: { some: { campañaId } } }];
-      if (generalId) orConds.push({ subactividadCampañas: { some: { campañaId: generalId } } });
-      return { OR: orConds };
-    };
 
-    const subactividades = await prisma.subactividad.findMany({
-      where: {
-        actividadId: actividadId,
-        activo: true,
-        ...whereCampaign()
-      },
-      orderBy: [
-        { orden: 'asc' },
-        { nombreSubactividad: 'asc' }
-      ],
-      select: {
-        id: true,
-        nombreSubactividad: true,
-        descripcion: true,
-        orden: true
+      // ASESORES/SUPERVISORES: Query 2 - Subactividades de General
+      const general = await prisma.campaña.findFirst({
+        where: { nombre: 'GENERAL' },
+        select: { id: true }
+      });
+
+      if (general) {
+        console.log('👤 Query 2: Subactividades de General', general.id);
+        const generalSubs = await prisma.subactividad.findMany({
+          where: {
+            actividadId: actividadId,
+            activo: true,
+            subactividadCampañas: {
+              some: { campañaId: general.id }
+            }
+          },
+          select: {
+            id: true,
+            nombreSubactividad: true,
+            descripcion: true,
+            orden: true
+          }
+        });
+
+        // Agregar al mapa (sin duplicar)
+        generalSubs.forEach(sub => {
+          if (!subactividadesMap.has(sub.id)) {
+            subactividadesMap.set(sub.id, { ...sub, esGeneral: true });
+          }
+        });
+        console.log(`  ✅ ${generalSubs.length} de General`);
       }
-    });
+
+      // Convertir mapa a array y ordenar
+      subactividades = Array.from(subactividadesMap.values()).sort((a, b) => {
+        if (a.orden !== b.orden) return a.orden - b.orden;
+        return a.nombreSubactividad.localeCompare(b.nombreSubactividad);
+      });
+    }
+
+    console.log('✅ Total subactividades:', subactividades.length);
 
     res.json({
       success: true,
@@ -181,62 +242,105 @@ export const startActivity = async (req, res) => {
     if (subactividadId) {
       const campañaId = req.user?.campañaId || null;
 
-      // Obtener ID de campaña 'General' si existe
-      let generalId = null;
-      try {
-        const general = await prisma.campaña.findFirst({ where: { nombre: 'General' }, select: { id: true } });
-        generalId = general?.id || null;
-      } catch (_) { /* no-op */ }
-
-      const campaignFilter = () => {
-        // Exigir campaña asignada: propia o 'General'
-        if (!campañaId) {
-          return generalId
-            ? { subactividadCampañas: { some: { campañaId: generalId } } }
-            : { subactividadCampañas: { some: { campañaId: -1 } } };
-        }
-        const orConds = [{ subactividadCampañas: { some: { campañaId } } }];
-        if (generalId) orConds.push({ subactividadCampañas: { some: { campañaId: generalId } } });
-        return { OR: orConds };
-      };
-
+      // Verificar que la subactividad existe, está activa y pertenece a la actividad
       const subactividad = await prisma.subactividad.findFirst({
         where: {
           id: subactividadId,
           actividadId,
-          activo: true,
-          ...campaignFilter()
+          activo: true
         }
       });
 
       if (!subactividad) {
         return res.status(404).json({
           success: false,
-          error: 'Subactividad no válida'
+          error: 'Subactividad no encontrada'
+        });
+      }
+
+      // Verificar que la subactividad pertenece a la campaña del usuario O a GENERAL
+      const general = await prisma.campaña.findFirst({
+        where: { nombre: 'GENERAL' },
+        select: { id: true }
+      });
+
+      // Verificar relación con la campaña del usuario
+      let perteneceACampana = false;
+      if (campañaId) {
+        const relacionUsuario = await prisma.subactividadCampaña.findFirst({
+          where: {
+            subactividadId,
+            campañaId
+          }
+        });
+        perteneceACampana = !!relacionUsuario;
+      }
+
+      // Verificar relación con GENERAL
+      let perteneceAGeneral = false;
+      if (general) {
+        const relacionGeneral = await prisma.subactividadCampaña.findFirst({
+          where: {
+            subactividadId,
+            campañaId: general.id
+          }
+        });
+        perteneceAGeneral = !!relacionGeneral;
+      }
+
+      // La subactividad debe pertenecer a la campaña del usuario O a GENERAL
+      if (!perteneceACampana && !perteneceAGeneral) {
+        return res.status(403).json({
+          success: false,
+          error: 'No tienes acceso a esta subactividad'
         });
       }
     }
 
-    // ✅ Validación obligatoria del ID Cliente / Referencia cuando se registra una subactividad
-    // (El formulario modal exige este campo, reforzamos en backend para garantizar integridad)
+    // ✅ Validación condicional del ID Cliente / Referencia
+    // Las subactividades de GENERAL NO requieren este campo (son opcionales)
+    // Las subactividades de otras campañas SÍ lo requieren
     let idClienteReferenciaNormalizado = null;
     if (subactividadId) {
+      // Verificar si la subactividad pertenece a la campaña GENERAL
+      const general = await prisma.campaña.findFirst({
+        where: { nombre: 'GENERAL' },
+        select: { id: true }
+      });
+
+      let esSubactividadGeneral = false;
+      if (general) {
+        const relacionGeneral = await prisma.subactividadCampaña.findFirst({
+          where: {
+            subactividadId,
+            campañaId: general.id
+          }
+        });
+        esSubactividadGeneral = !!relacionGeneral;
+      }
+
       const rawIdRef = (idClienteReferencia ?? '').toString().trim();
-      if (!rawIdRef) {
+      
+      // Solo requerir ID Cliente si NO es subactividad de GENERAL
+      if (!esSubactividadGeneral && !rawIdRef) {
         return res.status(400).json({
           success: false,
-          error: 'El campo idClienteReferencia es obligatorio cuando se selecciona una subactividad.',
+          error: 'El campo idClienteReferencia es obligatorio para esta subactividad.',
           code: 'ID_CLIENTE_REFERENCIA_REQUIRED'
         });
       }
-      if (!/^\d+$/.test(rawIdRef)) {
-        return res.status(400).json({
-          success: false,
-          error: 'El campo idClienteReferencia debe contener solo dígitos.',
-          code: 'ID_CLIENTE_REFERENCIA_INVALID'
-        });
+      
+      // Si se proporciona, validar formato
+      if (rawIdRef) {
+        if (!/^\d+$/.test(rawIdRef)) {
+          return res.status(400).json({
+            success: false,
+            error: 'El campo idClienteReferencia debe contener solo dígitos.',
+            code: 'ID_CLIENTE_REFERENCIA_INVALID'
+          });
+        }
+        idClienteReferenciaNormalizado = rawIdRef; // Guardar versión normalizada
       }
-      idClienteReferenciaNormalizado = rawIdRef; // Guardar versión normalizada
     }
 
     // Cerrar actividad anterior si existe (evitar escaneo masivo y calcular duración en app)

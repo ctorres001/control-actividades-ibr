@@ -7,6 +7,7 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
   const [clientRef, setClientRef] = useState('');
   const [comment, setComment] = useState('');
   const [error, setError] = useState(''); // Nuevo estado para manejar errores
+  const [allGeneral, setAllGeneral] = useState(false); // Flag para subactividades de General
 
   useEffect(() => {
     let mounted = true;
@@ -16,6 +17,9 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
         const res = await loadSubactivities(activity.id);
         if (mounted) {
           setSubactivities(res || []);
+          // Detectar si todas las subactividades son de General
+          const todasGeneral = res && res.length > 0 && res.every(s => s.esGeneral === true);
+          setAllGeneral(todasGeneral);
           setLoading(false);
         }
       } catch (err) {
@@ -35,7 +39,8 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
   }, [activity, loadSubactivities, onCancel]);
 
   const handleConfirm = () => {
-    if (!clientRef.trim()) {
+    // ID Cliente solo obligatorio si NO son todas de General
+    if (!allGeneral && !clientRef.trim()) {
       setError('El campo ID Cliente / Referencia es obligatorio.');
       return;
     }
@@ -85,19 +90,25 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
             </label>
 
             <label>
-              <div className="text-sm font-medium mb-1">ID Cliente / Referencia</div>
+              <div className="text-sm font-medium mb-1">
+                ID Cliente / Referencia
+                {allGeneral && <span className="text-neutral-400 ml-1">(opcional)</span>}
+              </div>
               <input 
                 className="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                 value={clientRef} 
                 onChange={handleClientRefChange} 
-                placeholder="Ej: 12345" 
+                placeholder={allGeneral ? "Ej: 12345 (opcional)" : "Ej: 12345"} 
                 maxLength={100}
               />
               {error && <p className="text-sm text-red-500 mt-1">{error}</p>} {/* Mostrar error si existe */}
             </label>
 
             <label>
-              <div className="text-sm font-medium mb-1">Resumen breve</div>
+              <div className="text-sm font-medium mb-1">
+                Resumen breve
+                {allGeneral && <span className="text-neutral-400 ml-1">(opcional)</span>}
+              </div>
               <textarea 
                 className="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                 rows={4} 
@@ -119,9 +130,9 @@ export default function SubactivityModal({ activity, onCancel, onConfirm, loadSu
           </button>
           <button 
             onClick={handleConfirm} 
-            disabled={loading || !selected || !clientRef.trim()}
+            disabled={loading || !selected || (!allGeneral && !clientRef.trim())}
             className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title={!clientRef.trim() ? 'Ingresa ID Cliente / Referencia' : 'Confirmar registro'}
+            title={(!allGeneral && !clientRef.trim()) ? 'Ingresa ID Cliente / Referencia' : 'Confirmar registro'}
           >
             Confirmar
           </button>
