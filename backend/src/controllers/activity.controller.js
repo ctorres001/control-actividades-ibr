@@ -184,7 +184,7 @@ export const getSubactivities = async (req, res) => {
 // =====================================================
 export const startActivity = async (req, res) => {
   try {
-    const { actividadId, subactividadId, observaciones, idClienteReferencia, resumenBreve } = req.body;
+    const { actividadId, subactividadId, observaciones, idClienteReferencia, resumenBreve, horaInicio } = req.body;
     const usuarioId = req.user.id;
 
     // Validar que la actividad existe y está activa
@@ -389,6 +389,21 @@ export const startActivity = async (req, res) => {
     // Crear nuevo registro
     // Fecha ya calculada arriba para reutilizar en validaciones
     
+    // 🎯 Usar horaInicio proporcionada desde frontend (para modales) o timestamp actual
+    let horaInicioFinal;
+    if (horaInicio) {
+      // Validar que sea una fecha válida
+      horaInicioFinal = new Date(horaInicio);
+      if (isNaN(horaInicioFinal.getTime())) {
+        console.warn('⚠️ horaInicio inválida recibida, usando timestamp actual');
+        horaInicioFinal = new Date();
+      } else {
+        console.log('🕐 Usando horaInicio proporcionada desde frontend:', horaInicioFinal.toISOString());
+      }
+    } else {
+      horaInicioFinal = new Date();
+    }
+    
     const nuevoRegistro = await prisma.registroActividad.create({
       data: {
         usuarioId,
@@ -398,7 +413,7 @@ export const startActivity = async (req, res) => {
         idClienteReferencia: idClienteReferenciaNormalizado || null,
         resumenBreve: resumenBreve || null,
         fecha: localDate,
-        horaInicio: new Date(),
+        horaInicio: horaInicioFinal,
         estado: 'Iniciado'
       },
       include: {
