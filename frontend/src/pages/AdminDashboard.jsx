@@ -105,9 +105,9 @@ export default function AdminDashboard() {
       statsService.exportToExcel(registros, 'estadisticas_admin', {
         groupBy: filters.usuarioId ? 'date' : 'user',
         includeDetails: true,
-        includeSummary: true, // Incluir hoja Resumen
-        includeActivitySheet: true, // Incluir hoja Por Actividad
-        excludeActivities: ['Ingreso', 'Regreso Break']
+        includeSummary: false, // Solo hoja Detalle
+        includeActivitySheet: false, // Solo hoja Detalle
+        excludeActivities: ['Ingreso', 'Regreso Break', 'Salida']
       });
       toast.success('Archivo Excel descargado exitosamente');
     } catch (error) {

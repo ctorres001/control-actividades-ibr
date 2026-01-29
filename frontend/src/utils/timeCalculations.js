@@ -117,11 +117,23 @@ export function calculateWorkStats(registros) {
     }
   }
 
-  // Calcular tiempo total: suma de TODOS los registros (trabajo + no-trabajo)
-  // Esto garantiza que totalTime >= workTime siempre
-  totalTime = workTime + nonWorkTime;
+  // Calcular tiempo total: diferencia entre primera entrada y última salida
+  if (firstEntry && lastExit) {
+    const entryTime = new Date(firstEntry.fechaInicio || firstEntry.fechaFin);
+    const exitTime = new Date(lastExit.fechaInicio || lastExit.fechaFin);
+    const diff = (exitTime - entryTime) / 1000;
+    if (diff > 0) {
+      totalTime = diff;
+    }
+  }
 
-  const workPercentage = totalTime > 0 ? (workTime / totalTime) * 100 : 0;
+  // Fallback: suma de todos los registros si no hay ingreso/salida válidos
+  if (!totalTime || totalTime <= 0) {
+    totalTime = workTime + nonWorkTime;
+  }
+
+  let workPercentage = totalTime > 0 ? (workTime / totalTime) * 100 : 0;
+  if (workPercentage > 100) workPercentage = 100;
 
   return {
     totalTime,
