@@ -21,7 +21,8 @@ export default function ActivityChart({ data, type = 'bar', title }) {
   // Formatear datos para el gráfico
   const chartData = data.map((item, index) => ({
     name: item.name || 'Sin nombre',
-    'Duración (min)': Math.round(item.duration / 60),
+    // Mantener decimales para duraciones cortas (ej: 28s = 0.47 min)
+    'Duración (min)': Number((item.duration / 60).toFixed(2)),
     'Veces': item.count || 0,
     duration: item.duration,
     fill: COLORS[index % COLORS.length]
