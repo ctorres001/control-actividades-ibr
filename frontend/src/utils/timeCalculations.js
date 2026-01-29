@@ -80,9 +80,6 @@ export function calculateWorkStats(registros) {
     new Date(a.fechaInicio) - new Date(b.fechaInicio)
   );
 
-  const firstEntry = sorted.find(r => r.nombreActividad === 'Ingreso');
-  const lastExit = [...sorted].reverse().find(r => r.nombreActividad === 'Salida');
-
   let totalTime = 0;
   let workTime = 0;
   let nonWorkTime = 0;
@@ -117,17 +114,52 @@ export function calculateWorkStats(registros) {
     }
   }
 
-  // Calcular tiempo total: diferencia entre primera entrada y última salida
-  if (firstEntry && lastExit) {
-    const entryTime = new Date(firstEntry.fechaInicio || firstEntry.fechaFin);
-    const exitTime = new Date(lastExit.fechaInicio || lastExit.fechaFin);
-    const diff = (exitTime - entryTime) / 1000;
-    if (diff > 0) {
-      totalTime = diff;
+  // Calcular tiempo total: sumar (Ingreso -> Salida) por usuario
+  const perUser = {};
+  let earliestEntry = null;
+  let latestExit = null;
+
+  for (const registro of sorted) {
+    const userId = registro.usuarioId || registro.usuario?.id || 'unknown';
+    if (!perUser[userId]) {
+      perUser[userId] = { registros: [], firstEntry: null, lastExit: null };
+    }
+    perUser[userId].registros.push(registro);
+    if (registro.nombreActividad === 'Ingreso') {
+      perUser[userId].firstEntry = perUser[userId].firstEntry || registro;
+      if (!earliestEntry || new Date(registro.fechaInicio) < new Date(earliestEntry.fechaInicio)) {
+        earliestEntry = registro;
+      }
+    }
+    if (registro.nombreActividad === 'Salida') {
+      perUser[userId].lastExit = registro;
+      if (!latestExit || new Date(registro.fechaFin || registro.fechaInicio) > new Date(latestExit.fechaFin || latestExit.fechaInicio)) {
+        latestExit = registro;
+      }
     }
   }
 
-  // Fallback: suma de todos los registros si no hay ingreso/salida válidos
+  let totalTimeSum = 0;
+  for (const userData of Object.values(perUser)) {
+    if (userData.firstEntry && userData.lastExit) {
+      const entryTime = new Date(userData.firstEntry.fechaInicio || userData.firstEntry.fechaFin);
+      const exitTime = new Date(userData.lastExit.fechaFin || userData.lastExit.fechaInicio);
+      const diff = (exitTime - entryTime) / 1000;
+      if (diff > 0) {
+        totalTimeSum += diff;
+        continue;
+      }
+    }
+    // Fallback por usuario si no hay ingreso/salida válidos
+    const userTotal = userData.registros.reduce((acc, r) => {
+      const start = new Date(r.fechaInicio);
+      const end = r.fechaFin ? new Date(r.fechaFin) : new Date();
+      return acc + (end - start) / 1000;
+    }, 0);
+    totalTimeSum += userTotal;
+  }
+
+  totalTime = totalTimeSum;
   if (!totalTime || totalTime <= 0) {
     totalTime = workTime + nonWorkTime;
   }
@@ -141,8 +173,8 @@ export function calculateWorkStats(registros) {
     nonWorkTime,
     workPercentage: Math.round(workPercentage * 100) / 100,
     activities: Object.values(activityStats).sort((a, b) => b.duration - a.duration),
-    firstEntry: firstEntry?.fechaInicio || null,
-    lastExit: lastExit?.fechaFin || null,
+    firstEntry: earliestEntry?.fechaInicio || null,
+    lastExit: latestExit?.fechaFin || null,
     totalHours: secondsToHours(totalTime),
     workHours: secondsToHours(workTime)
   };
