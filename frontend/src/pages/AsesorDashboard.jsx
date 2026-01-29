@@ -240,7 +240,25 @@ export default function AsesorDashboard() {
           });
           
           toast.success(`✅ ${activity.nombreActividad} iniciada`, { id: toastId });
-          await loadSummaryAndLog(); // Esperar a que termine la recarga
+          // Ingreso y Regreso Break: auto-finalizar tras 1 segundo
+          if (activity.nombreActividad === 'Ingreso' || activity.nombreActividad === 'Regreso Break') {
+            setTimeout(async () => {
+              try {
+                await activityService.stopActivity();
+              } catch (err) {
+                console.warn('⚠️ No se pudo auto-finalizar:', err?.message);
+              } finally {
+                setCurrentRegistroId(null);
+                setCurrentActivityId(null);
+                setCurrentActivityName(null);
+                setCurrentStartEpoch(null);
+                setUiTimerKey(null);
+                await loadSummaryAndLog();
+              }
+            }, 1000);
+          } else {
+            await loadSummaryAndLog(); // Esperar a que termine la recarga
+          }
           // Protección contra caché de 2-3s en backend: si aún no refleja "Ingreso", forzar enable con estado local
           if (activity.nombreActividad === 'Ingreso' && !dayStartedFromLog) {
             console.log('ℹ️ dayStarted activado por estado local (caché en backend)');
